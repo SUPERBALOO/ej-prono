@@ -16,28 +16,39 @@ export async function GET(
     // Participants du concours
     const { data: participants, error: participantsError } =
       await supabase
-        .from("participants")
-        .select(`
-          user_id,
-          profiles (
-            pseudo
-          )
-        `)
+        .from("participants_concours")
+        .select("*")
         .eq("concours_id", concoursId);
 
-    if (participantsError) throw participantsError;
+    if (participantsError) {
+      throw participantsError;
+    }
 
     const classement: any[] = [];
 
     for (const participant of participants || []) {
 
-      const { data: pointsRows } = await supabase
-        .from("points")
-        .select(`
-          points,
-          exact_score
-        `)
-        .eq("user_id", participant.user_id);
+      // Profil du joueur
+      const { data: profil } =
+        await supabase
+          .from("profiles")
+          .select("pseudo")
+          .eq("id", participant.joueur_id)
+          .single();
+
+      // Points du joueur
+      const { data: pointsRows, error: pointsError } =
+        await supabase
+          .from("points")
+          .select(`
+            points,
+            exact_score
+          `)
+          .eq("user_id", participant.joueur_id);
+
+      if (pointsError) {
+        throw pointsError;
+      }
 
       const totalPoints =
         pointsRows?.reduce(
@@ -56,7 +67,7 @@ export async function GET(
         ).length || 0;
 
       classement.push({
-        pseudo: participant.profiles?.pseudo || "Joueur",
+        pseudo: profil?.pseudo || "Joueur",
         points: totalPoints,
         bons_pronos: bonsPronos,
         scores_exacts: scoresExacts,
@@ -70,6 +81,8 @@ export async function GET(
     return NextResponse.json(classement);
 
   } catch (error: any) {
+
+    console.error(error);
 
     return NextResponse.json(
       {
