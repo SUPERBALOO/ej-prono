@@ -61,9 +61,10 @@ console.log("MATCH =", match_id);
     if (error) {
       throw error;
     }
+const origin = req.nextUrl.origin;
 
 await fetch(
-  "http://localhost:3000/api/recalculate-odds",
+  `${origin}/api/recalculate-odds`,
   {
     method: "POST",
     headers: {
