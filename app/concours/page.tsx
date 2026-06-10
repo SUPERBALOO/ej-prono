@@ -27,7 +27,9 @@ export default function ConcoursPage() {
       .select("is_admin")
       .eq("id", user.id)
       .single();
-
+console.log("USER ID :", user.id);
+console.log("PROFIL :", profil);
+console.log("IS_ADMIN :", profil?.is_admin);
     setIsAdmin(profil?.is_admin || false);
   }
 
