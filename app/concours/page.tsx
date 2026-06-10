@@ -31,16 +31,45 @@ export default function ConcoursPage() {
     setIsAdmin(profil?.is_admin || false);
   }
 
-  async function chargerConcours() {
+async function chargerConcours() {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const { data: profil } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+
+  // ADMIN : voit tous les concours
+  if (profil?.is_admin) {
     const { data } = await supabase
       .from("concours")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (data) {
-      setConcours(data);
-    }
+    setConcours(data || []);
+    return;
   }
+
+  // JOUEUR : voit uniquement ses concours
+  const { data } = await supabase
+    .from("participants_concours")
+    .select(`
+      concours (
+        *
+      )
+    `)
+    .eq("joueur_id", user.id);
+
+  const mesConcours =
+    data?.map((item: any) => item.concours) || [];
+
+  setConcours(mesConcours);
+}
 
   async function rejoindreConcours() {
   if (!codeAcces.trim()) return;
@@ -169,9 +198,11 @@ export default function ConcoursPage() {
                   {concours.nom}
                 </h3>
 
-                <p className="text-[#D8AA82] font-semibold mb-3">
-                  Code : {concours.code_acces}
-                </p>
+               {isAdmin && (
+  <p className="text-[#D8AA82] font-semibold mb-3">
+    Code : {concours.code_acces}
+  </p>
+)}
 
                 {concours.description && (
                   <p className="text-gray-300 mb-4">

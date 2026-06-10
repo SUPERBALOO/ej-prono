@@ -47,11 +47,18 @@ export default function ConcoursDetailPage() {
 
 async function chargerConcours() {
 
+  
   const {
   data: { user },
 } = await supabase.auth.getUser();
 if (!user) return;
+const { data: profil } = await supabase
+  .from("profiles")
+  .select("is_admin")
+  .eq("id", user.id)
+  .single();
 
+const isAdminUser = profil?.is_admin || false;
 
 const { data: pronos } = await supabase
   .from("predictions")
@@ -78,7 +85,8 @@ setSavedPredictions(savedMap);
 setPredictions(predictionsMap);
 setUserPronosCount(pronos?.length || 0);
 
-
+console.log("USER", user.id);
+console.log("PROFIL", profil);
 
   // Chargement des matchs
   const { data: matchsData } = await supabase
@@ -91,7 +99,20 @@ setUserPronosCount(pronos?.length || 0);
   setTotalMatchesCount(matchsData?.length || 0);
 
 
+if (!isAdminUser) {
+  const { data: inscription } = await supabase
+    .from("participants_concours")
+    .select("id")
+    .eq("concours_id", concoursId)
+    .eq("joueur_id", user.id)
+    .maybeSingle();
 
+  if (!inscription) {
+    alert("Vous n'avez pas accès à ce concours.");
+    router.push("/concours");
+    return;
+  }
+}
 
   // Chargement concours
   const { data: concoursData } = await supabase
