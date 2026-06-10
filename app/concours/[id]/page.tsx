@@ -669,17 +669,22 @@ const phaseLabels: Record<string, string> = {
                 type="number"
                 min="0"
                 value={
-                  predictions[match.id]?.pred_home ?? ""
+                  predictions[match.id]?.pred_away ?? ""
                 }
-                onChange={(e) =>
-                  setPredictions({
-                    ...predictions,
-                    [match.id]: {
-                      ...predictions[match.id],
-                      pred_home: e.target.value,
-                    },
-                  })
-                }
+                onChange={(e) => {
+                setPredictions({
+              ...predictions,
+              [match.id]: {
+              ...predictions[match.id],
+              pred_home: e.target.value,
+              },
+              });
+
+              setModifiedPredictions({
+              ...modifiedPredictions,
+              [match.id]: true,
+              });
+              }}
                 className="
                   w-16
                   text-center
@@ -688,6 +693,7 @@ const phaseLabels: Record<string, string> = {
                   p-2
                 "
               />
+
 
               <span>-</span>
 
@@ -698,19 +704,19 @@ const phaseLabels: Record<string, string> = {
                   predictions[match.id]?.pred_away ?? ""
                 }
                 onChange={(e) => {
-  setPredictions({
-    ...predictions,
-    [match.id]: {
-      ...predictions[match.id],
-      pred_away: e.target.value,
-    },
-  });
+                setPredictions({
+              ...predictions,
+              [match.id]: {
+              ...predictions[match.id],
+              pred_away: e.target.value,
+              },
+              });
 
-  setModifiedPredictions({
-    ...modifiedPredictions,
-    [match.id]: true,
-  });
-}}
+              setModifiedPredictions({
+              ...modifiedPredictions,
+              [match.id]: true,
+              });
+              }}
                 className="
                   w-16
                   text-center
