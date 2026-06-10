@@ -14,6 +14,7 @@ export default function ConcoursDetailPage() {
   const concoursId = params.id as string;
   const [concours, setConcours] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
+  const [classement, setClassement] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [createurPseudo, setCreateurPseudo] = useState("");
 
@@ -47,6 +48,14 @@ export default function ConcoursDetailPage() {
 
 async function chargerConcours() {
 
+  const rankingResponse = await fetch(
+  `/api/ranking/${concoursId}`
+    );
+
+    const rankingData =
+     await rankingResponse.json();
+
+setClassement(rankingData);
   
   const {
   data: { user },
@@ -572,16 +581,79 @@ const phaseLabels: Record<string, string> = {
           <div className="bg-[#33465D] rounded-3xl p-8 shadow-lg">
 
             {onglet === "classement" && (
-              <>
-                <h2 className="text-4xl font-bold mb-6">
-                  🏆 Classement
-                </h2>
 
-                <p className="text-gray-300">
-                  Aucun classement disponible pour le moment.
-                </p>
-              </>
-            )}
+<div className="bg-[#33465D] rounded-2xl p-6">
+
+  <h2 className="text-3xl font-bold mb-6">
+    🏆 Classement
+  </h2>
+
+  <table className="w-full">
+
+    <thead>
+      <tr className="border-b border-gray-500">
+
+        <th className="text-left p-3">
+          Joueur
+        </th>
+
+        <th className="text-center p-3">
+          Points
+        </th>
+
+        <th className="text-center p-3">
+          Bons pronos
+        </th>
+
+        <th className="text-center p-3">
+          Scores exacts
+        </th>
+
+      </tr>
+    </thead>
+
+    <tbody>
+
+      {classement.map((joueur, index) => (
+
+        <tr
+          key={index}
+          className="border-b border-gray-700"
+        >
+
+          <td className="p-3">
+
+            {index === 0 && "🥇 "}
+            {index === 1 && "🥈 "}
+            {index === 2 && "🥉 "}
+
+            {joueur.pseudo}
+
+          </td>
+
+          <td className="text-center p-3">
+            {joueur.points}
+          </td>
+
+          <td className="text-center p-3">
+            {joueur.bons_pronos}
+          </td>
+
+          <td className="text-center p-3">
+            {joueur.scores_exacts}
+          </td>
+
+        </tr>
+
+      ))}
+
+    </tbody>
+
+  </table>
+
+</div>
+
+)}
 
           {onglet === "pronostics" && (
   <>

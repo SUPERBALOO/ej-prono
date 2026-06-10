@@ -41,17 +41,7 @@ export async function GET() {
         continue;
       }
 
-      const alreadyCalculated =
-        await supabase
-          .from("points")
-          .select("id")
-          .eq("user_id", prediction.user_id)
-          .eq("match_id", prediction.match_id)
-          .maybeSingle();
-
-      if (alreadyCalculated.data) {
-        continue;
-      }
+      
 
       const realHome = match.home_score;
       const realAway = match.away_score;
@@ -103,13 +93,18 @@ export async function GET() {
       }
 
       await supabase
-        .from("points")
-        .insert({
-          user_id: prediction.user_id,
-          match_id: prediction.match_id,
-          points,
-          exact_score: exactScore,
-        });
+  .from("points")
+  .upsert(
+    {
+      user_id: prediction.user_id,
+      match_id: prediction.match_id,
+      points,
+      exact_score: exactScore,
+    },
+    {
+      onConflict: "user_id,match_id",
+    }
+  );
 
       processed++;
     }
