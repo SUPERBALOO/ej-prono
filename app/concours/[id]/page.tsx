@@ -669,7 +669,7 @@ const phaseLabels: Record<string, string> = {
                 type="number"
                 min="0"
                 value={
-                  predictions[match.id]?.pred_away ?? ""
+                  predictions[match.id]?.pred_home ?? ""
                 }
                 onChange={(e) => {
                 setPredictions({
