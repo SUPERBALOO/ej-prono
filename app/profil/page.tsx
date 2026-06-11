@@ -104,21 +104,7 @@ export default function ProfilPage() {
     }
   };
 
-  const renvoyerValidation = async () => {
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-    });
-
-    if (error) {
-      setMessageSecurite(error.message);
-    } else {
-      setMessageSecurite(
-        "Email de confirmation envoyé."
-      );
-    }
-  };
-
+  
   return (
     
   <div className="min-h-screen bg-[#1E3047] flex">
@@ -263,10 +249,10 @@ export default function ProfilPage() {
             </button>
 
             <button
-              onClick={renvoyerValidation}
-              className="px-6 py-3 rounded-lg bg-[#223246] hover:bg-[#1a2838]"
+            onClick={() => router.push("/mot-de-passe-oublie")}
+            className="px-6 py-3 rounded-lg bg-[#223246] hover:bg-[#1a2838]"
             >
-              Renvoyer l'email de validation
+            Mot de passe oublié
             </button>
 
           </div>

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -7,18 +7,22 @@ const supabase = createClient(
 );
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { concoursId: string } }
+  request: Request,
+  { params }: { params: Promise<{ concoursID: string }> }
 ) {
   try {
-    const concoursId = params.concoursId;
+    const { concoursID } = await params;
 
-    // Participants du concours
     const { data: participants, error: participantsError } =
       await supabase
         .from("participants_concours")
-        .select("*")
-        .eq("concours_id", concoursId);
+        .select(`
+          joueur_id,
+          profiles (
+            pseudo
+          )
+        `)
+        .eq("concours_id", concoursID);
 
     if (participantsError) {
       throw participantsError;
@@ -28,61 +32,103 @@ export async function GET(
 
     for (const participant of participants || []) {
 
-      // Profil du joueur
-      const { data: profil } =
+      const { data: predictions, error: predictionsError } =
         await supabase
-          .from("profiles")
-          .select("pseudo")
-          .eq("id", participant.joueur_id)
-          .single();
-
-      // Points du joueur
-      const { data: pointsRows, error: pointsError } =
-        await supabase
-          .from("points")
+          .from("predictions")
           .select(`
-            points,
-            exact_score
+            id,
+            pred_home,
+            pred_away,
+            match_id
           `)
           .eq("user_id", participant.joueur_id);
 
-      if (pointsError) {
-        throw pointsError;
+      if (predictionsError) {
+        throw predictionsError;
       }
 
-      const totalPoints =
-        pointsRows?.reduce(
-          (sum, p) => sum + (p.points || 0),
-          0
-        ) || 0;
+      let totalPoints = 0;
+      let bonsPronos = 0;
+      let scoresExacts = 0;
 
-      const bonsPronos =
-        pointsRows?.filter(
-          p => (p.points || 0) > 0
-        ).length || 0;
+      for (const prediction of predictions || []) {
 
-      const scoresExacts =
-        pointsRows?.filter(
-          p => p.exact_score === true
-        ).length || 0;
+        const { data: match, error: matchError } =
+          await supabase
+            .from("matches")
+            .select(`
+              home_score,
+              away_score
+            `)
+            .eq("id", prediction.match_id)
+            .single();
+
+        if (matchError || !match) {
+          continue;
+        }
+
+        if (
+          match.home_score === null ||
+          match.away_score === null
+        ) {
+          continue;
+        }
+
+        const resultatReel =
+          match.home_score > match.away_score
+            ? "1"
+            : match.home_score < match.away_score
+            ? "2"
+            : "N";
+
+        const resultatProno =
+          prediction.pred_home > prediction.pred_away
+            ? "1"
+            : prediction.pred_home < prediction.pred_away
+            ? "2"
+            : "N";
+
+        if (resultatReel === resultatProno) {
+          totalPoints += 1;
+          bonsPronos++;
+        }
+
+        if (
+          prediction.pred_home === match.home_score &&
+          prediction.pred_away === match.away_score
+        ) {
+          totalPoints += 2;
+          scoresExacts++;
+        }
+      }
 
       classement.push({
-        pseudo: profil?.pseudo || "Joueur",
+        pseudo:
+          participant.profiles?.[0]?.pseudo ??
+          "Joueur",
         points: totalPoints,
         bons_pronos: bonsPronos,
         scores_exacts: scoresExacts,
       });
     }
 
-    classement.sort(
-      (a, b) => b.points - a.points
-    );
+    classement.sort((a, b) => {
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+
+      if (b.scores_exacts !== a.scores_exacts) {
+        return b.scores_exacts - a.scores_exacts;
+      }
+
+      return b.bons_pronos - a.bons_pronos;
+    });
 
     return NextResponse.json(classement);
 
   } catch (error: any) {
 
-    console.error(error);
+    console.error("Erreur classement :", error);
 
     return NextResponse.json(
       {
