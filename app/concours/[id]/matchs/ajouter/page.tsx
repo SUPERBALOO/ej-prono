@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -12,6 +13,7 @@ export default function AjouterMatchPage() {
   const [homeTeam, setHomeTeam] = useState("");
   const [awayTeam, setAwayTeam] = useState("");
   const [matchDate, setMatchDate] = useState("");
+
   const [phase, setPhase] = useState("GROUP_STAGE");
   const [groupe, setGroupe] = useState("GROUP_A");
 
@@ -38,7 +40,7 @@ export default function AjouterMatchPage() {
       return;
     }
 
-    alert("Match ajouté");
+    alert("Match ajouté avec succès");
 
     router.push(`/concours/${params.id}`);
   }
@@ -47,39 +49,62 @@ export default function AjouterMatchPage() {
     <div className="min-h-screen bg-[#1E3047] text-white flex">
       <Sidebar />
 
-      <main className="flex-1 ml-64 p-10">
+      <main className="flex-1 p-4 md:p-10 md:ml-64 pt-20">
         <div className="max-w-3xl mx-auto">
 
-          <h1 className="text-5xl font-bold mb-8">
-            Ajouter un match
+          <h1 className="text-3xl md:text-5xl font-bold mb-6 md:mb-8">
+            ➕ Ajouter un match
           </h1>
 
-          <div className="bg-[#33465D] rounded-3xl p-8 space-y-6">
+          <div className="bg-[#33465D] rounded-3xl p-4 md:p-8 space-y-5">
 
+            {/* Equipe domicile */}
             <div>
               <label className="block mb-2 text-[#D8AA82]">
                 Équipe domicile
               </label>
 
               <input
+                type="text"
                 value={homeTeam}
                 onChange={(e) => setHomeTeam(e.target.value)}
-                className="w-full bg-[#42546B] rounded-xl p-4 text-white border border-[#51657D]"
+                placeholder="Ex : France"
+                className="
+                  w-full
+                  bg-[#42546B]
+                  rounded-xl
+                  p-3 md:p-4
+                  border
+                  border-[#51657D]
+                  text-white
+                "
               />
             </div>
 
+            {/* Equipe extérieure */}
             <div>
               <label className="block mb-2 text-[#D8AA82]">
                 Équipe extérieure
               </label>
 
               <input
+                type="text"
                 value={awayTeam}
                 onChange={(e) => setAwayTeam(e.target.value)}
-                className="w-full bg-[#42546B] rounded-xl p-4 text-white border border-[#51657D]"
+                placeholder="Ex : Allemagne"
+                className="
+                  w-full
+                  bg-[#42546B]
+                  rounded-xl
+                  p-3 md:p-4
+                  border
+                  border-[#51657D]
+                  text-white
+                "
               />
             </div>
 
+            {/* Date */}
             <div>
               <label className="block mb-2 text-[#D8AA82]">
                 Date du match
@@ -89,10 +114,19 @@ export default function AjouterMatchPage() {
                 type="datetime-local"
                 value={matchDate}
                 onChange={(e) => setMatchDate(e.target.value)}
-                className="w-full bg-[#42546B] rounded-xl p-4 text-white border border-[#51657D]"
+                className="
+                  w-full
+                  bg-[#42546B]
+                  rounded-xl
+                  p-3 md:p-4
+                  border
+                  border-[#51657D]
+                  text-white
+                "
               />
             </div>
 
+            {/* Phase */}
             <div>
               <label className="block mb-2 text-[#D8AA82]">
                 Phase
@@ -101,17 +135,43 @@ export default function AjouterMatchPage() {
               <select
                 value={phase}
                 onChange={(e) => setPhase(e.target.value)}
-                className="w-full bg-[#42546B] rounded-xl p-4 text-white border border-[#51657D]"
+                className="
+                  w-full
+                  bg-[#42546B]
+                  rounded-xl
+                  p-3 md:p-4
+                  border
+                  border-[#51657D]
+                  text-white
+                "
               >
-                <option value="GROUP_STAGE">Phase de groupes</option>
-                <option value="LAST_16">Huitièmes de finale</option>
-                <option value="QUARTER_FINALS">Quarts de finale</option>
-                <option value="SEMI_FINALS">Demi-finales</option>
-                <option value="THIRD_PLACE">Match 3e place</option>
-                <option value="FINAL">Finale</option>
+                <option value="GROUP_STAGE">
+                  Phase de groupes
+                </option>
+
+                <option value="LAST_16">
+                  Huitièmes de finale
+                </option>
+
+                <option value="QUARTER_FINALS">
+                  Quarts de finale
+                </option>
+
+                <option value="SEMI_FINALS">
+                  Demi-finales
+                </option>
+
+                <option value="THIRD_PLACE">
+                  Match pour la 3ème place
+                </option>
+
+                <option value="FINAL">
+                  Finale
+                </option>
               </select>
             </div>
 
+            {/* Groupe */}
             {phase === "GROUP_STAGE" && (
               <div>
                 <label className="block mb-2 text-[#D8AA82]">
@@ -121,7 +181,15 @@ export default function AjouterMatchPage() {
                 <select
                   value={groupe}
                   onChange={(e) => setGroupe(e.target.value)}
-                  className="w-full bg-[#42546B] rounded-xl p-4 text-white border border-[#51657D]"
+                  className="
+                    w-full
+                    bg-[#42546B]
+                    rounded-xl
+                    p-3 md:p-4
+                    border
+                    border-[#51657D]
+                    text-white
+                  "
                 >
                   <option value="GROUP_A">Groupe A</option>
                   <option value="GROUP_B">Groupe B</option>
@@ -135,20 +203,40 @@ export default function AjouterMatchPage() {
               </div>
             )}
 
-            <div className="flex gap-4 pt-4">
+            {/* Boutons */}
+            <div className="flex flex-col md:flex-row gap-3 pt-4">
 
               <button
                 onClick={ajouterMatch}
-                className="bg-[#D8AA82] text-[#1E3047] px-6 py-3 rounded-xl font-bold"
+                className="
+                  w-full md:w-auto
+                  bg-[#D8AA82]
+                  text-[#1E3047]
+                  px-6
+                  py-3
+                  rounded-xl
+                  font-bold
+                  hover:opacity-90
+                  transition
+                "
               >
-                Enregistrer
+                💾 Enregistrer
               </button>
 
               <button
                 onClick={() => router.back()}
-                className="bg-[#42546B] px-6 py-3 rounded-xl font-bold"
+                className="
+                  w-full md:w-auto
+                  bg-[#42546B]
+                  px-6
+                  py-3
+                  rounded-xl
+                  font-bold
+                  hover:bg-[#51657D]
+                  transition
+                "
               >
-                Annuler
+                ❌ Annuler
               </button>
 
             </div>

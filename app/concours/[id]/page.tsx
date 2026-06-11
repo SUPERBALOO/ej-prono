@@ -30,16 +30,8 @@ export default function ConcoursDetailPage() {
   
 
 
-  function getFlagEmoji(code: string) {
-   
-    const countryCode = code
-    .toUpperCase()
-    .replace(/./g, c =>
-      String.fromCodePoint(127397 + c.charCodeAt(0))
-    );
+ 
 
-  return countryCode;
-}
   
   useEffect(() => {
     chargerConcours();
@@ -169,20 +161,7 @@ if (!isAdminUser) {
   }
 
   // Admin
-  if (user) {
-
-    const { data: profil } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    setIsAdmin(
-      profil?.is_admin || false
-    );
-  }
-
-
+  
 
   if (user) {
     const { data: profil } = await supabase
@@ -191,18 +170,9 @@ if (!isAdminUser) {
       .eq("id", user.id)
       .single();
 
-    setIsAdmin(profil?.is_admin || false);
+    setIsAdmin(isAdminUser);
   }
-  if (concoursData?.createur) {
-  const { data: createurData } = await supabase
-    .from("profiles")
-    .select("pseudo")
-    .eq("id", concoursData.createur)
-    .single();
-
-  setCreateurPseudo(createurData?.pseudo || "");
-
-}
+  
 }
 
 async function enregistrerPronostic(matchId: string) {
@@ -251,10 +221,7 @@ async function enregistrerPronostic(matchId: string) {
   }));
   //alert("Pronostic enregistré");
 
-setSavedPredictions((prev: any) => ({
-  ...prev,
-  [matchId]: true,
-}));
+
 
 setModifiedPredictions((prev: any) => ({
   ...prev,
@@ -360,15 +327,15 @@ const phaseLabels: Record<string, string> = {
     <div className="min-h-screen bg-[#1E3047] text-white flex">
       <Sidebar />
 
-      <main className="flex-1 ml-64 p-10">
-        <div className="max-w-6xl mx-auto">
+      <main className="flex-1 p-4 pt-20 md:p-10 md:ml-64">
+        <div className="max-w-6xl w-full mx-auto">
 
           {/* HEADER */}
           <div className="bg-[#33465D] rounded-3xl p-8 mb-8 shadow-lg">
 
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
               <div>
-                <h1 className="text-6xl font-bold mb-3">
+                <h1 className="text-3xl md:text-6xl font-bold mb-3 break-words">
                   {concours.nom}
                 </h1>
 
@@ -383,16 +350,19 @@ const phaseLabels: Record<string, string> = {
 
   <Link
     href={`/concours/${params.id}/modifier`}
-    className="
-      bg-red-500
-      text-white
-      px-6
-      py-3
-      rounded-xl
-      font-semibold
-      hover:bg-red-600
-      transition
-    "
+className="
+  w-full
+  md:w-auto
+  text-center
+  bg-red-500
+  text-white
+  px-6
+  py-3
+  rounded-xl
+  font-semibold
+  hover:bg-red-600
+  transition
+"
   >
     Modifier
   </Link>
@@ -400,7 +370,7 @@ const phaseLabels: Record<string, string> = {
 
             </div>
 
-            <div className="grid md:grid-cols-5 gap-8 mt-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8">
 
               {/* CODE ACCES */}
               <div>
@@ -420,8 +390,8 @@ const phaseLabels: Record<string, string> = {
                       py-3
                       rounded-xl
                       font-mono
-                      text-xl
-                      tracking-[0.25em]
+                      text-base md:text-xl
+                      tracking-[0.15em] md:tracking-[0.25em]
                       hover:border-[#D8AA82]
                       transition
                     "
@@ -494,7 +464,7 @@ const phaseLabels: Record<string, string> = {
           </div>
 
           {/* STATISTIQUES */}
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
 
             <div className="bg-[#33465D] p-6 rounded-2xl shadow">
               <p className="text-gray-400">
@@ -529,11 +499,11 @@ const phaseLabels: Record<string, string> = {
           </div>
 
           {/* ONGLETS */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
 
             <button
               onClick={() => setOnglet("classement")}
-              className={`p-5 rounded-xl font-semibold text-lg transition ${
+              className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
                 onglet === "classement"
                   ? "bg-[#D8AA82]"
                   : "bg-[#33465D] hover:bg-[#42546B]"
@@ -544,7 +514,7 @@ const phaseLabels: Record<string, string> = {
 
             <button
               onClick={() => setOnglet("pronostics")}
-              className={`p-4 rounded-xl font-semibold text-lg transition ${
+              className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
                 onglet === "pronostics"
                   ? "bg-[#D8AA82]"
                   : "bg-[#33465D] hover:bg-[#42546B]"
@@ -555,7 +525,7 @@ const phaseLabels: Record<string, string> = {
 
             <button
               onClick={() => setOnglet("matchs")}
-              className={`p-4 rounded-xl font-semibold text-lg transition ${
+              className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
                 onglet === "matchs"
                   ? "bg-[#D8AA82]"
                   : "bg-[#33465D] hover:bg-[#42546B]"
@@ -566,7 +536,7 @@ const phaseLabels: Record<string, string> = {
 
             <button
               onClick={() => setOnglet("participants")}
-              className={`p-4 rounded-xl font-semibold text-lg transition ${
+              className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
                 onglet === "participants"
                   ? "bg-[#D8AA82]"
                   : "bg-[#33465D] hover:bg-[#42546B]"
@@ -588,7 +558,8 @@ const phaseLabels: Record<string, string> = {
     🏆 Classement
   </h2>
 
-  <table className="w-full">
+  <div className="overflow-x-auto">
+  <table className="w-full min-w-[600px]">
 
     <thead>
       <tr className="border-b border-gray-500">
@@ -650,14 +621,13 @@ const phaseLabels: Record<string, string> = {
     </tbody>
 
   </table>
-
 </div>
-
+</div>
 )}
 
           {onglet === "pronostics" && (
   <>
-    <h2 className="text-4xl font-bold mb-6">
+    <h2 className="text-2xl md:text-4xl font-bold mb-6">
       🌍 Pronostics
     </h2>
 
@@ -670,10 +640,10 @@ const phaseLabels: Record<string, string> = {
           className="bg-[#42546B] rounded-2xl p-5"
         >
 
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col lg:flex-row gap-4 lg:justify-between lg:items-center">
 
             <div>
-              <div className="font-bold text-xl">
+              <div className="font-bold text-lg md:text-xl break-words">
                 {match.home_team} vs {match.away_team}
               </div>
 
@@ -697,7 +667,7 @@ const phaseLabels: Record<string, string> = {
             
 
 
-<div className="flex items-center gap-2">
+<div className="flex flex-wrap items-center gap-2">
 
   <div className="bg-green-700 px-3 py-2 rounded flex items-center gap-2">
     {match.home_logo && (
@@ -735,7 +705,7 @@ const phaseLabels: Record<string, string> = {
 </div>
 
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
 
               <input
                 type="number"
@@ -837,26 +807,26 @@ const phaseLabels: Record<string, string> = {
 {onglet === "matchs" && (
   <div className="bg-[#33465D] rounded-3xl p-8">
 
-    <div className="flex justify-between items-center mb-8">
-      <h2 className="text-5xl font-bold">
+    <div className="flex flex-col md:flex-row gap-4 md:justify-between md:items-center mb-8">
+      <h2 className="text-2xl md:text-5xl font-bold">
         📅 Matchs
       </h2>
 
 {isAdmin && (
-  <div className="flex gap-3">
+  <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
 
     <button
       onClick={() =>
         router.push(`/concours/${params.id}/matchs/ajouter`)
       }
-      className="bg-[#D8AA82] text-white px-5 py-3 rounded-xl font-semibold hover:opacity-90"
+      className="w-full md:w-auto bg-[#D8AA82] text-white px-5 py-3 rounded-xl font-semibold hover:opacity-90"
     >
       ➕ Ajouter un match
     </button>
 
     <button
       onClick={importerMatchs}
-      className="bg-green-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-green-700"
+      className="w-full md:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-green-700"
     >
       🌍 Importer compétition
     </button>
@@ -897,10 +867,10 @@ const phaseLabels: Record<string, string> = {
 
             <div
               key={match.id}
-              className="bg-[#425773] rounded-2xl p-2 flex justify-between items-center"
+              className="bg-[#425773] rounded-2xl p-4 flex flex-col md:flex-row gap-4 md:justify-between md:items-center"
             >
               <div>
-<div className="flex items-center gap-4">
+<div className="flex flex-col md:flex-row items-start md:items-center gap-3">
 
   <div className="flex items-center gap-2 bg-[#33465D] px-3 py-2 rounded-xl">
     {match.home_logo && (
@@ -980,7 +950,7 @@ const phaseLabels: Record<string, string> = {
 
 {onglet === "participants" && (
   <>
-    <h2 className="text-4xl font-bold mb-6">
+    <h2 className="text-2xl md:text-4xl font-bold mb-6">
       👥 Participants
     </h2>
 
@@ -995,7 +965,7 @@ const phaseLabels: Record<string, string> = {
 
           <div
             key={participant.id}
-            className="bg-[#42546B] rounded-xl p-4 flex justify-between items-center"
+            className="bg-[#42546B] rounded-xl p-4 flex flex-col md:flex-row gap-4 md:justify-between md:items-center"
           >
 
             <div className="flex items-center gap-3">

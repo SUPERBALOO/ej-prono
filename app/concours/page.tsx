@@ -135,43 +135,43 @@ async function chargerConcours() {
   <div className="min-h-screen bg-[#1E3047] text-white flex">
     <Sidebar />
 
-    <main className="flex-1 ml-64 p-10">
-      <div className="max-w-6xl mx-auto">
+    <main className="flex-1 p-4 pt-20 md:p-10 md:ml-64">
+      <div className="max-w-6xl w-full mx-auto">
 
         {/* En-tête */}
-        <div className="flex justify-between items-center mb-10">
-          <h1 className="text-5xl font-bold text-white">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8">
+          <h1 className="text-3xl md:text-5xl font-bold text-white">
             🏆 Concours
           </h1>
 
           {isAdmin && (
             <Link
               href="/concours/creer"
-              className="bg-[#D8AA82] text-white px-6 py-3 rounded-lg font-semibold hover:opacity-90 transition"
+              className="w-full md:w-auto text-center bg-[#D8AA82] text-white px-6 py-3 rounded-xl font-semibold hover:opacity-90 transition"
             >
               ➕ Créer un concours
             </Link>
           )}
         </div>
 
-        {/* Rejoindre */}
-        <div className="bg-[#33465D] rounded-2xl p-6 mb-10 shadow-lg">
-          <h2 className="text-3xl font-bold text-white mb-6">
+        {/* Rejoindre un concours */}
+        <div className="bg-[#33465D] rounded-3xl p-5 md:p-8 mb-8 shadow-xl">
+          <h2 className="text-2xl md:text-3xl font-bold mb-5">
             Rejoindre un concours
           </h2>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
             <input
               type="text"
               placeholder="Code d'accès"
               value={codeAcces}
               onChange={(e) => setCodeAcces(e.target.value)}
-              className="flex-1 p-4 rounded-lg bg-white text-black border border-gray-300"
+              className="w-full p-4 rounded-xl bg-white text-black border border-gray-300"
             />
 
             <button
               onClick={rejoindreConcours}
-              className="bg-[#D8AA82] text-white px-6 rounded-lg font-semibold hover:opacity-90 transition"
+              className="w-full md:w-auto bg-[#D8AA82] text-white px-8 py-4 rounded-xl font-semibold hover:opacity-90 transition"
             >
               Rejoindre
             </button>
@@ -179,40 +179,40 @@ async function chargerConcours() {
         </div>
 
         {/* Mes concours */}
-        <h2 className="text-3xl font-bold text-white mb-6">
+        <h2 className="text-2xl md:text-3xl font-bold mb-6">
           Mes concours
         </h2>
 
         {concours.length === 0 ? (
-          <div className="bg-[#33465D] rounded-2xl p-8 text-center">
+          <div className="bg-[#33465D] rounded-3xl p-8 text-center">
             <p className="text-gray-300">
               Aucun concours disponible.
             </p>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {concours.map((concours) => (
               <div
                 key={concours.id}
-                className="bg-[#33465D] rounded-2xl p-6 shadow-lg hover:scale-[1.02] transition"
+                className="bg-[#33465D] rounded-3xl p-5 shadow-xl hover:scale-[1.02] transition"
               >
-                <h3 className="text-2xl font-bold text-white mb-3">
+                <h3 className="text-xl md:text-2xl font-bold mb-3">
                   {concours.nom}
                 </h3>
 
-               {isAdmin && (
-  <p className="text-[#D8AA82] font-semibold mb-3">
-    Code : {concours.code_acces}
-  </p>
-)}
+                {isAdmin && (
+                  <div className="inline-block bg-[#D8AA82]/20 text-[#D8AA82] px-3 py-1 rounded-full text-sm font-semibold mb-3">
+                    Code : {concours.code_acces}
+                  </div>
+                )}
 
                 {concours.description && (
-                  <p className="text-gray-300 mb-4">
+                  <p className="text-gray-300 text-sm md:text-base mb-4 line-clamp-3">
                     {concours.description}
                   </p>
                 )}
 
-                <div className="flex justify-between items-center text-sm text-gray-400">
+                <div className="flex justify-between items-center text-sm text-gray-400 mb-5">
                   <span>
                     👥 {concours.max_joueurs || "Illimité"}
                   </span>
@@ -226,7 +226,7 @@ async function chargerConcours() {
 
                 <Link
                   href={`/concours/${concours.id}`}
-                  className="block mt-5 text-center bg-[#D8AA82] text-white py-2 rounded-lg font-medium hover:opacity-90 transition"
+                  className="block w-full text-center bg-[#D8AA82] text-white py-3 rounded-xl font-semibold hover:opacity-90 transition"
                 >
                   Ouvrir
                 </Link>
@@ -234,7 +234,6 @@ async function chargerConcours() {
             ))}
           </div>
         )}
-
       </div>
     </main>
   </div>

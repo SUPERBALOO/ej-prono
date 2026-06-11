@@ -14,27 +14,26 @@ export default function ModifierConcoursPage() {
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
   const [maxJoueurs, setMaxJoueurs] = useState(100);
-  const [chargement, setChargement] = useState(true);
   const [competitionId, setCompetitionId] = useState("");
   const [competitions, setCompetitions] = useState<any[]>([]);
+  const [chargement, setChargement] = useState(true);
 
   useEffect(() => {
     chargerConcours();
-      chargerCompetitions();
+    chargerCompetitions();
   }, []);
 
-
   async function chargerCompetitions() {
-  const { data } = await supabase
-    .from("competitions")
-    .select("*")
-    .eq("actif", true)
-    .order("nom");
+    const { data } = await supabase
+      .from("competitions")
+      .select("*")
+      .eq("actif", true)
+      .order("nom");
 
-  setCompetitions(data || []);
-}
+    setCompetitions(data || []);
+  }
+
   async function chargerConcours() {
-    
     const { data } = await supabase
       .from("concours")
       .select("*")
@@ -49,6 +48,7 @@ export default function ModifierConcoursPage() {
     setDateFin(data.date_fin?.substring(0, 10));
     setMaxJoueurs(data.max_joueurs || 100);
     setCompetitionId(data.competition_id || "");
+
     setChargement(false);
   }
 
@@ -99,7 +99,8 @@ export default function ModifierConcoursPage() {
     return (
       <div className="min-h-screen bg-[#1E3047] text-white flex">
         <Sidebar />
-        <main className="flex-1 ml-64 flex items-center justify-center">
+
+        <main className="flex-1 md:ml-64 flex items-center justify-center">
           Chargement...
         </main>
       </div>
@@ -110,25 +111,37 @@ export default function ModifierConcoursPage() {
     <div className="min-h-screen bg-[#1E3047] text-white flex">
       <Sidebar />
 
-      <main className="flex-1 ml-64 p-10 pt-16">
+      <main className="flex-1 p-4 md:p-10 md:ml-64 pt-20">
         <div className="max-w-4xl mx-auto">
 
           {/* TITRE */}
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-5xl font-bold">
+          <div className="flex flex-col md:flex-row gap-4 md:justify-between md:items-center mb-8">
+
+            <h1 className="text-3xl md:text-5xl font-bold">
               ⚙️ Modifier le concours
             </h1>
 
             <button
               onClick={() => router.push(`/concours/${params.id}`)}
-              className="bg-[#314357] text-white px-5 py-3 rounded-xl font-semibold hover:bg-[#42546B] transition"
+              className="
+                w-full md:w-auto
+                bg-[#314357]
+                text-white
+                px-5
+                py-3
+                rounded-xl
+                font-semibold
+                hover:bg-[#42546B]
+                transition
+              "
             >
               ← Retour
             </button>
+
           </div>
 
           {/* FORMULAIRE */}
-          <div className="bg-[#33465D] p-10 rounded-3xl shadow-lg space-y-8">
+          <div className="bg-[#33465D] p-4 md:p-10 rounded-3xl shadow-lg space-y-6 md:space-y-8">
 
             {/* NOM */}
             <div>
@@ -141,7 +154,7 @@ export default function ModifierConcoursPage() {
                 onChange={(e) => setNom(e.target.value)}
                 className="
                   w-full
-                  p-4
+                  p-3 md:p-4
                   rounded-xl
                   bg-[#1E3047]
                   text-white
@@ -152,41 +165,43 @@ export default function ModifierConcoursPage() {
                 "
               />
             </div>
+
             {/* COMPETITION */}
             <div>
-             <label className="block font-semibold text-[#D8AA82] mb-2">
-             Compétition officielle
-                </label>
+              <label className="block font-semibold text-[#D8AA82] mb-2">
+                Compétition officielle
+              </label>
 
-                <select
+              <select
                 value={competitionId}
                 onChange={(e) => setCompetitionId(e.target.value)}
                 className="
-                 w-full
-                 p-4
-                 rounded-xl
-                 bg-[#1E3047]
-                text-white
-                border
-                border-[#4A5D75]
-                focus:border-[#D8AA82]
-                focus:outline-none
+                  w-full
+                  p-3 md:p-4
+                  rounded-xl
+                  bg-[#1E3047]
+                  text-white
+                  border
+                  border-[#4A5D75]
+                  focus:border-[#D8AA82]
+                  focus:outline-none
                 "
-            >
+              >
                 <option value="">
-            Sélectionner une compétition
+                  Sélectionner une compétition
                 </option>
 
-            {competitions.map((competition) => (
-            <option
-                key={competition.id}
-                value={competition.id}
-            >
-                {competition.nom}
-            </option>
-            ))}
-            </select>
+                {competitions.map((competition) => (
+                  <option
+                    key={competition.id}
+                    value={competition.id}
+                  >
+                    {competition.nom}
+                  </option>
+                ))}
+              </select>
             </div>
+
             {/* DESCRIPTION */}
             <div>
               <label className="block font-semibold text-[#D8AA82] mb-2">
@@ -199,7 +214,7 @@ export default function ModifierConcoursPage() {
                 rows={5}
                 className="
                   w-full
-                  p-4
+                  p-3 md:p-4
                   rounded-xl
                   bg-[#1E3047]
                   text-white
@@ -225,7 +240,7 @@ export default function ModifierConcoursPage() {
                   onChange={(e) => setDateDebut(e.target.value)}
                   className="
                     w-full
-                    p-4
+                    p-3 md:p-4
                     rounded-xl
                     bg-[#1E3047]
                     text-white
@@ -246,7 +261,7 @@ export default function ModifierConcoursPage() {
                   onChange={(e) => setDateFin(e.target.value)}
                   className="
                     w-full
-                    p-4
+                    p-3 md:p-4
                     rounded-xl
                     bg-[#1E3047]
                     text-white
@@ -272,7 +287,7 @@ export default function ModifierConcoursPage() {
                 }
                 className="
                   w-full
-                  p-4
+                  p-3 md:p-4
                   rounded-xl
                   bg-[#1E3047]
                   text-white
@@ -283,13 +298,14 @@ export default function ModifierConcoursPage() {
             </div>
 
             {/* BOUTONS */}
-            <div className="flex flex-wrap gap-4 pt-4">
+            <div className="flex flex-col md:flex-row gap-3 pt-4">
 
               <button
                 onClick={enregistrer}
                 className="
+                  w-full md:w-auto
                   bg-[#D8AA82]
-                  text-white
+                  text-[#1E3047]
                   px-8
                   py-3
                   rounded-xl
@@ -304,6 +320,7 @@ export default function ModifierConcoursPage() {
               <button
                 onClick={() => router.back()}
                 className="
+                  w-full md:w-auto
                   bg-[#314357]
                   text-white
                   px-8
@@ -320,6 +337,7 @@ export default function ModifierConcoursPage() {
               <button
                 onClick={supprimerConcours}
                 className="
+                  w-full md:w-auto
                   bg-red-500
                   text-white
                   px-8
@@ -328,7 +346,7 @@ export default function ModifierConcoursPage() {
                   font-semibold
                   hover:bg-red-600
                   transition
-                  ml-auto
+                  md:ml-auto
                 "
               >
                 🗑️ Supprimer

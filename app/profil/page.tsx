@@ -104,169 +104,221 @@ export default function ProfilPage() {
     }
   };
 
-  
   return (
-    
-  <div className="min-h-screen bg-[#1E3047] flex">
-    <Sidebar />
+    <div className="min-h-screen bg-[#1E3047] flex">
+      <Sidebar />
 
-    <main className="flex-1 ml-64">
-      <div className="min-h-screen bg-[#182738] text-white">
-        <div className="max-w-4xl mx-auto p-8">
+      <main className="flex-1 md:ml-64 pt-20">
+        <div className="min-h-screen bg-[#182738] text-white">
+          <div className="max-w-4xl mx-auto p-4 md:p-8">
 
-        <div className="flex justify-center mb-8">
-          <Image
-            src="/logo-ej-prono.png"
-            alt="EJ Prono"
-            width={180}
-            height={180}
-            priority
-          />
-        </div>
-
-        <h1 className="text-5xl font-bold text-center mb-10">
-          Mon Profil
-        </h1>
-
-        {/* PROFIL */}
-
-        <div className="bg-[#2d3b4b] rounded-xl p-8 shadow-lg">
-
-          <div className="mb-6">
-            <label className="block mb-2 text-[#c9a27e]">
-              Pseudo
-            </label>
-
-            <input
-              type="text"
-              value={pseudo}
-              onChange={(e) =>
-                setPseudo(e.target.value)
-              }
-              className="w-full p-3 rounded-lg bg-white text-black"
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block mb-2 text-[#c9a27e]">
-              Email
-            </label>
-
-            <input
-              type="text"
-              value={email}
-              disabled
-              className="w-full p-3 rounded-lg bg-gray-300 text-gray-700"
-            />
-          </div>
-
-          <div className="mb-6">
-            <label className="block mb-2 text-[#c9a27e]">
-              Rôle
-            </label>
-
-            <div className="p-3 rounded-lg bg-[#223246]">
-              {isAdmin
-                ? "Administrateur"
-                : "Joueur"}
+            {/* Logo */}
+            <div className="flex justify-center mb-6 md:mb-8">
+              <Image
+                src="/logo-ej-prono.png"
+                alt="EJ Prono"
+                width={180}
+                height={180}
+                priority
+                className="w-32 md:w-44 h-auto"
+              />
             </div>
-          </div>
 
-          <div className="mb-8">
-            <label className="block mb-2 text-[#c9a27e]">
-              Inscrit depuis
-            </label>
+            {/* Titre */}
+            <h1 className="text-3xl md:text-5xl font-bold text-center mb-8 md:mb-10">
+              Mon Profil
+            </h1>
 
-            <div className="p-3 rounded-lg bg-[#223246]">
-              {createdAt
-                ? new Date(
-                    createdAt
-                  ).toLocaleDateString("fr-FR")
-                : ""}
+            {/* PROFIL */}
+            <div className="bg-[#2d3b4b] rounded-xl p-5 md:p-8 shadow-lg">
+
+              <div className="mb-6">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Pseudo
+                </label>
+
+                <input
+                  type="text"
+                  value={pseudo}
+                  onChange={(e) =>
+                    setPseudo(e.target.value)
+                  }
+                  className="
+                    w-full
+                    p-3
+                    rounded-lg
+                    bg-white
+                    text-black
+                  "
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Email
+                </label>
+
+                <input
+                  type="text"
+                  value={email}
+                  disabled
+                  className="
+                    w-full
+                    p-3
+                    rounded-lg
+                    bg-gray-300
+                    text-gray-700
+                  "
+                />
+              </div>
+
+              <div className="mb-6">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Rôle
+                </label>
+
+                <div className="p-3 rounded-lg bg-[#223246]">
+                  {isAdmin
+                    ? "Administrateur"
+                    : "Joueur"}
+                </div>
+              </div>
+
+              <div className="mb-8">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Inscrit depuis
+                </label>
+
+                <div className="p-3 rounded-lg bg-[#223246]">
+                  {createdAt
+                    ? new Date(
+                        createdAt
+                      ).toLocaleDateString("fr-FR")
+                    : ""}
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-3">
+
+                <button
+                  onClick={enregistrerPseudo}
+                  className="
+                    w-full md:w-auto
+                    px-6
+                    py-3
+                    rounded-lg
+                    bg-[#c9a27e]
+                    hover:bg-[#b58d69]
+                    transition
+                  "
+                >
+                  Enregistrer
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push("/dashboard")
+                  }
+                  className="
+                    w-full md:w-auto
+                    px-6
+                    py-3
+                    rounded-lg
+                    bg-[#223246]
+                    hover:bg-[#1a2838]
+                    transition
+                  "
+                >
+                  Retour Dashboard
+                </button>
+
+              </div>
+
+              {message && (
+                <p className="mt-4 text-green-400">
+                  {message}
+                </p>
+              )}
             </div>
+
+            {/* SECURITE */}
+            <div className="mt-6 md:mt-8 bg-[#2d3b4b] rounded-xl p-5 md:p-8 shadow-lg">
+
+              <h2 className="text-2xl md:text-3xl font-bold mb-6">
+                Sécurité du compte
+              </h2>
+
+              <div className="mb-6">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Nouveau mot de passe
+                </label>
+
+                <input
+                  type="password"
+                  value={nouveauMotDePasse}
+                  onChange={(e) =>
+                    setNouveauMotDePasse(
+                      e.target.value
+                    )
+                  }
+                  className="
+                    w-full
+                    p-3
+                    rounded-lg
+                    bg-white
+                    text-black
+                  "
+                  placeholder="Nouveau mot de passe"
+                />
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-3">
+
+                <button
+                  onClick={changerMotDePasse}
+                  className="
+                    w-full md:w-auto
+                    px-6
+                    py-3
+                    rounded-lg
+                    bg-[#c9a27e]
+                    hover:bg-[#b58d69]
+                    transition
+                  "
+                >
+                  Modifier le mot de passe
+                </button>
+
+                <button
+                  onClick={() =>
+                    router.push("/mot-de-passe-oublie")
+                  }
+                  className="
+                    w-full md:w-auto
+                    px-6
+                    py-3
+                    rounded-lg
+                    bg-[#223246]
+                    hover:bg-[#1a2838]
+                    transition
+                  "
+                >
+                  Mot de passe oublié
+                </button>
+
+              </div>
+
+              {messageSecurite && (
+                <p className="mt-4 text-green-400">
+                  {messageSecurite}
+                </p>
+              )}
+
+            </div>
+
           </div>
-
-          <div className="flex gap-4">
-
-            <button
-              onClick={enregistrerPseudo}
-              className="px-6 py-3 rounded-lg bg-[#c9a27e] hover:bg-[#b58d69] transition"
-            >
-              Enregistrer
-            </button>
-
-            <button
-              onClick={() =>
-                router.push("/dashboard")
-              }
-              className="px-6 py-3 rounded-lg bg-[#223246] hover:bg-[#1a2838] transition"
-            >
-              Retour Dashboard
-            </button>
-
-          </div>
-
-          {message && (
-            <p className="mt-4 text-green-400">
-              {message}
-            </p>
-          )}
         </div>
-
-        {/* SECURITE */}
-
-        <div className="mt-8 bg-[#2d3b4b] rounded-xl p-8 shadow-lg">
-
-          <h2 className="text-3xl font-bold mb-6">
-            Sécurité du compte
-          </h2>
-
-          <div className="mb-6">
-            <label className="block mb-2 text-[#c9a27e]">
-              Nouveau mot de passe
-            </label>
-
-            <input
-              type="password"
-              value={nouveauMotDePasse}
-              onChange={(e) =>
-                setNouveauMotDePasse(
-                  e.target.value
-                )
-              }
-              className="w-full p-3 rounded-lg bg-white text-black"
-              placeholder="Nouveau mot de passe"
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-4">
-
-            <button
-              onClick={changerMotDePasse}
-              className="px-6 py-3 rounded-lg bg-[#c9a27e] hover:bg-[#b58d69]"
-            >
-              Modifier le mot de passe
-            </button>
-
-            <button
-            onClick={() => router.push("/mot-de-passe-oublie")}
-            className="px-6 py-3 rounded-lg bg-[#223246] hover:bg-[#1a2838]"
-            >
-            Mot de passe oublié
-            </button>
-
-          </div>
-
-          {messageSecurite && (
-            <p className="mt-4 text-green-400">
-              {messageSecurite}
-            </p>
-          )}
-        </div>
-
-        </div>
-      </div>
-    </main>
-  </div>
-);
+      </main>
+    </div>
+  );
 }
