@@ -16,36 +16,21 @@ export default function Home() {
 
   async function chargerStats() {
     try {
-      const {
-        count: nbParticipants,
-        error: errParticipants,
-      } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true });
+      const { data, error } = await supabase.rpc("get_home_stats");
 
-      const {
-        count: nbConcours,
-        error: errConcours,
-      } = await supabase
-        .from("concours")
-        .select("*", { count: "exact", head: true });
+      if (error) {
+        console.error("Erreur get_home_stats :", error);
+        return;
+      }
 
-      const {
-        count: nbPronostics,
-        error: errPronostics,
-      } = await supabase
-        .from("predictions")
-        .select("*", { count: "exact", head: true });
+      console.log("Stats récupérées :", data);
 
-      console.log("Participants :", nbParticipants, errParticipants);
-      console.log("Concours :", nbConcours, errConcours);
-      console.log("Pronostics :", nbPronostics, errPronostics);
+      setParticipants(Number(data?.participants) || 0);
+      setConcours(Number(data?.concours) || 0);
+      setPronostics(Number(data?.pronostics) || 0);
 
-      setParticipants(nbParticipants || 0);
-      setConcours(nbConcours || 0);
-      setPronostics(nbPronostics || 0);
-    } catch (error) {
-      console.error("Erreur chargement statistiques :", error);
+    } catch (err) {
+      console.error("Erreur chargement statistiques :", err);
     }
   }
 
