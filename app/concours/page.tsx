@@ -141,7 +141,7 @@ async function chargerConcours() {
         {/* En-tête */}
         <div className="flex justify-between items-center mb-10">
           <h1 className="text-5xl font-bold text-white">
-            🏆 Concours Bisous
+            🏆 Concours
           </h1>
 
           {isAdmin && (
