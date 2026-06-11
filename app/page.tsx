@@ -1,36 +1,53 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase/client";
 
 export default function Home() {
-
   const [participants, setParticipants] = useState(0);
-const [concours, setConcours] = useState(0);
-const [pronostics, setPronostics] = useState(0);
+  const [concours, setConcours] = useState(0);
+  const [pronostics, setPronostics] = useState(0);
 
-useEffect(() => {
-  chargerStats();
-}, []);
+  useEffect(() => {
+    chargerStats();
+  }, []);
 
-async function chargerStats() {
-  const { count: nbParticipants } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true });
+  async function chargerStats() {
+    try {
+      const {
+        count: nbParticipants,
+        error: errParticipants,
+      } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true });
 
-  const { count: nbConcours } = await supabase
-    .from("concours")
-    .select("*", { count: "exact", head: true });
+      const {
+        count: nbConcours,
+        error: errConcours,
+      } = await supabase
+        .from("concours")
+        .select("*", { count: "exact", head: true });
 
-  const { count: nbPronostics } = await supabase
-    .from("pronostics")
-    .select("*", { count: "exact", head: true });
+      const {
+        count: nbPronostics,
+        error: errPronostics,
+      } = await supabase
+        .from("predictions")
+        .select("*", { count: "exact", head: true });
 
-  setParticipants(nbParticipants || 0);
-  setConcours(nbConcours || 0);
-  setPronostics(nbPronostics || 0);
-}
+      console.log("Participants :", nbParticipants, errParticipants);
+      console.log("Concours :", nbConcours, errConcours);
+      console.log("Pronostics :", nbPronostics, errPronostics);
+
+      setParticipants(nbParticipants || 0);
+      setConcours(nbConcours || 0);
+      setPronostics(nbPronostics || 0);
+    } catch (error) {
+      console.error("Erreur chargement statistiques :", error);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#1F2933] flex items-center justify-center p-6">
@@ -59,7 +76,7 @@ async function chargerStats() {
           </p>
 
           <p className="text-gray-300 mb-10">
-            A vos pronos ...
+            À vos pronostics...
           </p>
 
           {/* Boutons */}
@@ -85,18 +102,30 @@ async function chargerStats() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             <div className="bg-[#1F2933] rounded-xl p-6">
-              <p className="text-4xl font-bold text-[#C19A7A]">{participants}</p>
-              <p className="text-white">Participants</p>
+              <p className="text-4xl font-bold text-[#C19A7A]">
+                {participants}
+              </p>
+              <p className="text-white">
+                Participants
+              </p>
             </div>
 
             <div className="bg-[#1F2933] rounded-xl p-6">
-              <p className="text-4xl font-bold text-[#C19A7A]">{concours}</p>
-              <p className="text-white">Concours actifs</p>
+              <p className="text-4xl font-bold text-[#C19A7A]">
+                {concours}
+              </p>
+              <p className="text-white">
+                Concours actifs
+              </p>
             </div>
 
             <div className="bg-[#1F2933] rounded-xl p-6">
-              <p className="text-4xl font-bold text-[#C19A7A]">{pronostics}</p>
-              <p className="text-white">Pronostics</p>
+              <p className="text-4xl font-bold text-[#C19A7A]">
+                {pronostics}
+              </p>
+              <p className="text-white">
+                Pronostics
+              </p>
             </div>
 
           </div>
