@@ -24,98 +24,50 @@ export async function GET(
       throw participantsError;
     }
 
-    // Tous les profils
-    const { data: profils, error: profilsError } =
-      await supabase
-        .from("profiles")
-        .select("id, pseudo");
+    const userIds =
+      participants?.map((p) => p.joueur_id) || [];
 
-    if (profilsError) {
-      throw profilsError;
-    }
+    // Profils
+    const { data: profils } = await supabase
+      .from("profiles")
+      .select("id,pseudo")
+      .in("id", userIds);
 
-    // Dictionnaire id => pseudo
-    const pseudos: Record<string, string> = {};
+    const pseudoMap: Record<string, string> = {};
 
-    (profils || []).forEach((profil) => {
-      pseudos[profil.id] = profil.pseudo;
+    (profils || []).forEach((p) => {
+      pseudoMap[p.id] = p.pseudo;
     });
 
-    const classement: any[] = [];
+    const classement = [];
 
     for (const participant of participants || []) {
-      const { data: predictions, error: predictionsError } =
-        await supabase
-          .from("predictions")
-          .select(`
-            pred_home,
-            pred_away,
-            match_id
-          `)
-          .eq("user_id", participant.joueur_id);
+      const userId = participant.joueur_id;
 
-      if (predictionsError) {
-        throw predictionsError;
-      }
+      const { data: pointsData } = await supabase
+        .from("points")
+        .select(`
+          points,
+          exact_score
+        `)
+        .eq("user_id", userId);
 
-      let totalPoints = 0;
-      let bonsPronos = 0;
-      let scoresExacts = 0;
+      const totalPoints = (pointsData || []).reduce(
+        (sum, row) => sum + (row.points || 0),
+        0
+      );
 
-      for (const prediction of predictions || []) {
-        const { data: match, error: matchError } =
-          await supabase
-            .from("matches")
-            .select(`
-              home_score,
-              away_score
-            `)
-            .eq("id", prediction.match_id)
-            .single();
+      const scoresExacts = (pointsData || []).filter(
+        (row) => row.exact_score
+      ).length;
 
-        if (matchError || !match) {
-          continue;
-        }
-
-        if (
-          match.home_score === null ||
-          match.away_score === null
-        ) {
-          continue;
-        }
-
-        const resultatReel =
-          match.home_score > match.away_score
-            ? "1"
-            : match.home_score < match.away_score
-            ? "2"
-            : "N";
-
-        const resultatProno =
-          prediction.pred_home > prediction.pred_away
-            ? "1"
-            : prediction.pred_home < prediction.pred_away
-            ? "2"
-            : "N";
-
-        if (resultatReel === resultatProno) {
-          totalPoints += 1;
-          bonsPronos++;
-        }
-
-        if (
-          prediction.pred_home === match.home_score &&
-          prediction.pred_away === match.away_score
-        ) {
-          totalPoints += 2;
-          scoresExacts++;
-        }
-      }
+      const bonsPronos = (pointsData || []).filter(
+        (row) => (row.points || 0) > 0
+      ).length;
 
       classement.push({
         pseudo:
-          pseudos[participant.joueur_id] ??
-          "Joueur",
+          pseudoMap[userId] || "Joueur",
         points: totalPoints,
         bons_pronos: bonsPronos,
         scores_exacts: scoresExacts,
@@ -134,12 +86,11 @@ export async function GET(
       return b.bons_pronos - a.bons_pronos;
     });
 
-    console.log("Classement généré :", classement);
-
     return NextResponse.json(classement);
 
   } catch (error: any) {
-    console.error("Erreur classement :", error);
+
+    console.error(error);
 
     return NextResponse.json(
       {
