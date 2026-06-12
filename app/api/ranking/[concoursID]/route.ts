@@ -101,10 +101,12 @@ export async function GET(
           scoresExacts++;
         }
       }
-
+console.log(
+  JSON.stringify(participant, null, 2)
+);
       classement.push({
         pseudo:
-          participant.profiles?.[0]?.pseudo ??
+           participant.profiles?.[0]?.pseudo ??
           "Joueur",
         points: totalPoints,
         bons_pronos: bonsPronos,
