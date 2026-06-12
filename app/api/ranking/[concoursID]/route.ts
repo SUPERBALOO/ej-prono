@@ -13,30 +13,41 @@ export async function GET(
   try {
     const { concoursID } = await params;
 
+    // Participants du concours
     const { data: participants, error: participantsError } =
       await supabase
         .from("participants_concours")
-        .select(`
-          joueur_id,
-          profiles (
-            pseudo
-          )
-        `)
+        .select("joueur_id")
         .eq("concours_id", concoursID);
 
     if (participantsError) {
       throw participantsError;
     }
 
+    // Tous les profils
+    const { data: profils, error: profilsError } =
+      await supabase
+        .from("profiles")
+        .select("id, pseudo");
+
+    if (profilsError) {
+      throw profilsError;
+    }
+
+    // Dictionnaire id => pseudo
+    const pseudos: Record<string, string> = {};
+
+    (profils || []).forEach((profil) => {
+      pseudos[profil.id] = profil.pseudo;
+    });
+
     const classement: any[] = [];
 
     for (const participant of participants || []) {
-
       const { data: predictions, error: predictionsError } =
         await supabase
           .from("predictions")
           .select(`
-            id,
             pred_home,
             pred_away,
             match_id
@@ -52,7 +63,6 @@ export async function GET(
       let scoresExacts = 0;
 
       for (const prediction of predictions || []) {
-
         const { data: match, error: matchError } =
           await supabase
             .from("matches")
@@ -101,12 +111,10 @@ export async function GET(
           scoresExacts++;
         }
       }
-console.log(
-  JSON.stringify(participant, null, 2)
-);
+
       classement.push({
         pseudo:
-           participant.profiles?.[0]?.pseudo ??
+          pseudos[participant.joueur_id] ??
           "Joueur",
         points: totalPoints,
         bons_pronos: bonsPronos,
@@ -126,10 +134,11 @@ console.log(
       return b.bons_pronos - a.bons_pronos;
     });
 
+    console.log("Classement généré :", classement);
+
     return NextResponse.json(classement);
 
   } catch (error: any) {
-
     console.error("Erreur classement :", error);
 
     return NextResponse.json(
