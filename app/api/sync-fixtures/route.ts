@@ -53,7 +53,12 @@ export async function GET() {
     }
 
     console.log(`${matches.length} matchs à synchroniser`);
-
+console.log(
+  "Premier match :",
+  matches[0].home_team,
+  "vs",
+  matches[0].away_team
+);
     const response = await fetch(
       "https://v3.football.api-sports.io/fixtures?league=1&season=2026",
       {

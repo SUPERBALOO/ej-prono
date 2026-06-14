@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     const total =
       homeBets + drawBets + awayBets;
 
-    if (total < 5) {
+    if (total < 2) {
       return NextResponse.json({
         success: true,
         message:
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     const fifaAway =
       match.away_probability;
 
-    const PLAYER_WEIGHT = 0.15;
+    const PLAYER_WEIGHT = 0.50;
 
     const newHome =
         fifaHome * (1 - PLAYER_WEIGHT) +
