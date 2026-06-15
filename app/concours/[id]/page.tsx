@@ -6,11 +6,13 @@ import { supabase } from "@/lib/supabase/client";
 import Sidebar from "@/components/Sidebar";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 export default function ConcoursDetailPage() {
 
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const concoursId = params.id as string;
   const [concours, setConcours] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
@@ -18,7 +20,9 @@ export default function ConcoursDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [createurPseudo, setCreateurPseudo] = useState("");
 
-  const [onglet, setOnglet] = useState("classement");
+  const [onglet, setOnglet] = useState(
+  searchParams.get("tab") || "classement"
+  );
   const [copieOk, setCopieOk] = useState(false);
   const [matches, setMatches] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any>({});
@@ -920,19 +924,51 @@ className="
 
               </div>
 
-              <div>
+<div className="text-center">
 
-                {match.status === "finished" ? (
-                  <div className="text-4xl font-bold text-[#D8AA82]">
-                    {match.home_score} - {match.away_score}
-                  </div>
-                ) : (
-                  <div className="text-green-400 font-semibold">
-                    À venir
-                  </div>
-                )}
+  {match.status === "live" && (
+    <>
+      <div className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse mb-2">
+        🔴 LIVE {match.live_minute ? `${match.live_minute}'` : ""}
+      </div>
 
-              </div>
+      <div className="text-4xl font-bold text-red-400">
+        {match.home_score ?? 0} - {match.away_score ?? 0}
+      </div>
+
+      {match.live_status && (
+        <div className="text-xs text-gray-300 mt-1">
+          {match.live_status}
+        </div>
+      )}
+    </>
+  )}
+
+  {match.status === "finished" && (
+    <>
+      <div className="bg-green-700 text-white px-3 py-1 rounded-full text-sm font-bold mb-2">
+        ✅ Terminé
+      </div>
+
+      <div className="text-4xl font-bold text-[#D8AA82]">
+        {match.home_score} - {match.away_score}
+      </div>
+    </>
+  )}
+
+  {match.status === "scheduled" && (
+    <>
+      <div className="bg-blue-700 text-white px-3 py-1 rounded-full text-sm font-bold mb-2">
+        ⏳ À venir
+      </div>
+
+      <div className="text-gray-300">
+        Match non commencé
+      </div>
+    </>
+  )}
+
+</div>
 
             </div>
 

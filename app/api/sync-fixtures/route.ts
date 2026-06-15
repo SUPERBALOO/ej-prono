@@ -69,6 +69,8 @@ console.log(
     );
 
     const data = await response.json();
+    console.log("API RESPONSE:");
+console.log(JSON.stringify(data, null, 2));
 
     const fixtures = data.response || [];
 
