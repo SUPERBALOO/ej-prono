@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
+import AujourdHuiTab from "./components/AujourdHuiTab";
 
 export default function ConcoursDetailPage() {
 
@@ -21,7 +22,7 @@ export default function ConcoursDetailPage() {
   const [createurPseudo, setCreateurPseudo] = useState("");
 
   const [onglet, setOnglet] = useState(
-  searchParams.get("tab") || "classement"
+  searchParams.get("tab") || "aujourdhui"
   );
   const [copieOk, setCopieOk] = useState(false);
   const [matches, setMatches] = useState<any[]>([]);
@@ -31,6 +32,9 @@ export default function ConcoursDetailPage() {
   const [userPronosCount, setUserPronosCount] = useState(0);
   const [totalMatchesCount, setTotalMatchesCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [matchs48h, setMatchs48h] = useState<any[]>([]);
+  const [tendances, setTendances] = useState<any>({});
+  const [formesEquipes, setFormesEquipes] = useState<any>({});
   
   
 
@@ -124,6 +128,49 @@ console.log("PROFIL", profil);
     .order("match_date", { ascending: true });
 
   setMatches(matchsData || []);
+  const now = new Date();
+
+const limite48h = new Date(
+  now.getTime() + 48 * 60 * 60 * 1000
+);
+
+const prochainsMatchs =
+  (matchsData || []).filter((m: any) => {
+
+    const dateMatch =
+      new Date(m.match_date);
+
+    return (
+      dateMatch >= now &&
+      dateMatch <= limite48h
+    );
+
+  });
+
+setMatchs48h(prochainsMatchs);
+
+const tendancesMap: any = {};
+const formesMap: any = {};
+
+for (const match of prochainsMatchs) {
+
+  tendancesMap[match.id] =
+    await chargerTendances(match.id);
+
+  formesMap[match.home_team] =
+    await chargerFormeEquipe(
+      match.home_team
+    );
+
+  formesMap[match.away_team] =
+    await chargerFormeEquipe(
+      match.away_team
+    );
+
+}
+
+setTendances(tendancesMap);
+setFormesEquipes(formesMap);
   setTotalMatchesCount(matchsData?.length || 0);
 
 
@@ -277,6 +324,61 @@ async function quitterConcours(id: string) {
   }
 
   chargerConcours();
+}
+
+async function chargerTendances(matchId: string) {
+
+  const { data } = await supabase
+    .from("predictions")
+    .select("*")
+    .eq("match_id", matchId);
+
+  let home = 0;
+  let draw = 0;
+  let away = 0;
+
+  const scores: Record<string, number> = {};
+
+  (data || []).forEach((p: any) => {
+
+    if (p.pred_home > p.pred_away) home++;
+    else if (p.pred_home < p.pred_away) away++;
+    else draw++;
+
+    const score =
+      `${p.pred_home}-${p.pred_away}`;
+
+    scores[score] =
+      (scores[score] || 0) + 1;
+  });
+
+  return {
+    home,
+    draw,
+    away,
+    topScores: Object.entries(scores)
+      .sort((a: any, b: any) => b[1] - a[1])
+      .slice(0, 3),
+  };
+}
+
+async function chargerFormeEquipe(
+  equipe: string
+) {
+
+  const { data } = await supabase
+    .from("matches")
+    .select("*")
+    .or(
+      `home_team.eq.${equipe},away_team.eq.${equipe}`
+    )
+    .eq("status", "finished")
+    .order("match_date", {
+      ascending: false,
+    })
+    .limit(3);
+
+  return data || [];
 }
 
   async function copierCode() {
@@ -586,6 +688,19 @@ className="
             </button>
 
             <button
+            onClick={() =>
+            setOnglet("aujourdhui")
+            }
+            className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
+            onglet === "aujourdhui"
+            ? "bg-[#D8AA82]"
+            : "bg-[#33465D] hover:bg-[#42546B]"
+            }`}
+            >
+            🔥 Aujourd'hui
+            </button>
+
+            <button
               onClick={() => setOnglet("matchs")}
               className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
                 onglet === "matchs"
@@ -612,7 +727,25 @@ className="
           {/* CONTENU */}
           <div className="bg-[#33465D] rounded-3xl p-8 shadow-lg">
 
+{onglet === "aujourdhui" && (
+
+  <AujourdHuiTab
+    matchs48h={matchs48h}
+    tendances={tendances}
+    formesEquipes={formesEquipes}
+    predictions={predictions}
+    savedPredictions={savedPredictions}
+    modifiedPredictions={modifiedPredictions}
+    setPredictions={setPredictions}
+    setModifiedPredictions={setModifiedPredictions}
+    enregistrerPronostic={enregistrerPronostic}
+  />
+
+)}
+
+
             {onglet === "classement" && (
+              
 
 <div className="bg-[#33465D] rounded-2xl p-6">
 
