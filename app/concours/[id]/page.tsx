@@ -337,6 +337,8 @@ async function chargerTendances(matchId: string) {
   let draw = 0;
   let away = 0;
 
+   
+  const total = home + draw + away;
   const scores: Record<string, number> = {};
 
   (data || []).forEach((p: any) => {
@@ -356,6 +358,9 @@ async function chargerTendances(matchId: string) {
     home,
     draw,
     away,
+     homePct: total ? Math.round((home / total) * 100) : 0,
+    drawPct: total ? Math.round((draw / total) * 100) : 0,
+    awayPct: total ? Math.round((away / total) * 100) : 0,
     topScores: Object.entries(scores)
       .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 3),
