@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { calculatePoints } from "@/lib/calculatePoints";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,7 +9,6 @@ const supabase = createClient(
 
 export async function GET() {
   try {
-
     const { data: matches, error } = await supabase
       .from("matches")
       .select("*")
@@ -20,9 +20,12 @@ export async function GET() {
     }
 
     if (!matches?.length) {
+      const processed = await calculatePoints();
+
       return NextResponse.json({
         success: true,
         updated: 0,
+        processed,
         message: "Aucun match à synchroniser",
       });
     }
@@ -30,9 +33,7 @@ export async function GET() {
     let updated = 0;
 
     for (const match of matches) {
-
       try {
-
         const response = await fetch(
           `https://api.football-data.org/v4/matches/${match.api_match_id}`,
           {
@@ -45,14 +46,13 @@ export async function GET() {
 
         const data = await response.json();
 
-        if (!data || !data.id) {
+        if (!data?.id) {
           continue;
         }
 
         let status = "scheduled";
 
         switch (data.status) {
-
           case "LIVE":
           case "IN_PLAY":
           case "PAUSED":
@@ -80,7 +80,6 @@ export async function GET() {
 
           live_minute:
             data.minute ??
-            data.matchday ??
             null,
         };
 
@@ -90,64 +89,41 @@ export async function GET() {
           .eq("id", match.id);
 
         if (updateError) {
-          console.error(updateError);
+          console.error(
+            `Erreur update match ${match.id}`,
+            updateError
+          );
           continue;
         }
 
         updated++;
 
-        // Match terminé => calcul des points
-
-        if (
-          status === "finished" &&
-          match.status !== "finished"
-        ) {
-
-          try {
-
-            const origin =
-              process.env.NEXT_PUBLIC_SITE_URL ||
-              "http://localhost:3000";
-
-            await fetch(
-              `${origin}/api/calculate-points`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-                body: JSON.stringify({
-                  matchId: match.id,
-                }),
-              }
-            );
-
-          } catch (err) {
-            console.error(
-              "Erreur calculate-points",
-              err
-            );
-          }
-        }
-
       } catch (err) {
-
         console.error(
           `Erreur match ${match.api_match_id}`,
           err
         );
-
       }
     }
+
+    const processed =
+      await calculatePoints();
+
+    console.log(
+      `${updated} matchs synchronisés`
+    );
+
+    console.log(
+      `${processed} pronostics recalculés`
+    );
 
     return NextResponse.json({
       success: true,
       updated,
+      processed,
     });
 
   } catch (error: any) {
-
     console.error(error);
 
     return NextResponse.json(
