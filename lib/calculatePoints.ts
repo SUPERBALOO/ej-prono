@@ -5,7 +5,9 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function calculatePoints() {
+export async function calculatePoints(
+  matchId: string
+) {
   const { data: predictions, error } =
     await supabase
       .from("predictions")
@@ -17,7 +19,8 @@ export async function calculatePoints() {
           away_score,
           status
         )
-      `);
+      `)
+      .eq("match_id", matchId);
 
   if (error) {
     throw error;
@@ -26,7 +29,6 @@ export async function calculatePoints() {
   let processed = 0;
 
   for (const prediction of predictions || []) {
-
     const match = prediction.matches;
 
     if (!match) continue;
@@ -54,15 +56,9 @@ export async function calculatePoints() {
       predHome === realHome &&
       predAway === realAway
     ) {
-
       exactScore = true;
-
-      points = Math.round(
-        100 * cote
-      );
-
+      points = Math.round(100 * cote);
     } else {
-
       const realResult =
         realHome > realAway
           ? "HOME"
@@ -78,11 +74,7 @@ export async function calculatePoints() {
           : "DRAW";
 
       if (realResult === predResult) {
-
-        points = Math.round(
-          50 * cote
-        );
-
+        points = Math.round(50 * cote);
       }
     }
 

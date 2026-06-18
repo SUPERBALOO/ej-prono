@@ -20,17 +20,16 @@ export async function GET() {
     }
 
     if (!matches?.length) {
-      const processed = await calculatePoints();
-
       return NextResponse.json({
         success: true,
         updated: 0,
-        processed,
+        processed: 0,
         message: "Aucun match à synchroniser",
       });
     }
 
     let updated = 0;
+    let processed = 0;
 
     for (const match of matches) {
       try {
@@ -76,17 +75,18 @@ export async function GET() {
 
           status,
 
-          live_status: data.status ?? null,
+          live_status:
+            data.status ?? null,
 
           live_minute:
-            data.minute ??
-            null,
+            data.minute ?? null,
         };
 
-        const { error: updateError } = await supabase
-          .from("matches")
-          .update(updateData)
-          .eq("id", match.id);
+        const { error: updateError } =
+          await supabase
+            .from("matches")
+            .update(updateData)
+            .eq("id", match.id);
 
         if (updateError) {
           console.error(
@@ -98,6 +98,21 @@ export async function GET() {
 
         updated++;
 
+        // Match qui vient juste de se terminer
+        if (
+          status === "finished" &&
+          match.status !== "finished"
+        ) {
+          const recalculated =
+            await calculatePoints(match.id);
+
+          processed += recalculated;
+
+          console.log(
+            `Match ${match.id} terminé - ${recalculated} pronostics recalculés`
+          );
+        }
+
       } catch (err) {
         console.error(
           `Erreur match ${match.api_match_id}`,
@@ -106,15 +121,8 @@ export async function GET() {
       }
     }
 
-    const processed =
-      await calculatePoints();
-
     console.log(
       `${updated} matchs synchronisés`
-    );
-
-    console.log(
-      `${processed} pronostics recalculés`
     );
 
     return NextResponse.json({
