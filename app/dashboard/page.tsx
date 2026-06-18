@@ -81,15 +81,15 @@ export default function DashboardPage() {
             🏆 Concours
           </Link>
 
-          <Link
-            href="/pronostics"
+          <Link 
+          href="/concours"
             className="p-3 rounded hover:bg-[#42546B]"
           >
             📝 Pronostics
           </Link>
 
-          <Link
-            href="/classement"
+          <Link 
+          href="/concours"
             className="p-3 rounded hover:bg-[#42546B]"
           >
             🥇 Classement
