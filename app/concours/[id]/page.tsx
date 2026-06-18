@@ -41,6 +41,8 @@ useEffect(() => {
 
   const interval = setInterval(() => {
 
+  chargerConcours();
+
     if (onglet === "matchs") {
       chargerConcours();
     }
