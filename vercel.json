@@ -1,5 +1,9 @@
 {
   "crons": [
+        {
+      "path": "/api/sync-results",
+      "schedule": "*/5 * * * *"
+    },
     {
       "path": "/api/update-fifa-rankings",
       "schedule": "0 4 * * *"
