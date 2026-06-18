@@ -38,10 +38,12 @@ export default function ConcoursDetailPage() {
 
   
 useEffect(() => {
+  chargerConcours();
+}, []);
+
+useEffect(() => {
 
   const interval = setInterval(() => {
-
-  chargerConcours();
 
     if (onglet === "matchs") {
       chargerConcours();
@@ -55,6 +57,13 @@ useEffect(() => {
 
 
 async function chargerConcours() {
+  console.time("chargerConcours");
+
+  try {
+
+    // ton code
+
+  
 
   const rankingResponse = await fetch(
   `/api/ranking/${concoursId}`
@@ -189,6 +198,11 @@ if (!isAdminUser) {
     setIsAdmin(isAdminUser);
   }
   
+  } finally {
+
+    console.timeEnd("chargerConcours");
+
+  }
 }
 
 async function enregistrerPronostic(matchId: string) {
