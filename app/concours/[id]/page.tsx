@@ -30,6 +30,7 @@ export default function ConcoursDetailPage() {
   const [modifiedPredictions, setModifiedPredictions] = useState<any>({});
   const [userPronosCount, setUserPronosCount] = useState(0);
   const [totalMatchesCount, setTotalMatchesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   
   
 
@@ -57,6 +58,7 @@ useEffect(() => {
 
 
 async function chargerConcours() {
+   setLoading(true);
   console.time("chargerConcours");
 
   try {
@@ -199,7 +201,7 @@ if (!isAdminUser) {
   }
   
   } finally {
-
+    setLoading(false);
     console.timeEnd("chargerConcours");
 
   }
@@ -320,13 +322,43 @@ async function importerMatchs() {
   }
 }
 
-  if (!concours) {
-    return (
-      <div className="min-h-screen bg-[#1E3047] flex items-center justify-center text-white">
-        Chargement...
+if (loading) {
+  return (
+    <div className="min-h-screen bg-[#1E3047] flex flex-col items-center justify-center text-white">
+
+      {/* Logo */}
+      <img
+        src="/logo-ej-prono.png"
+        alt="EJ Prono"
+        className="w-48 mb-8"
+      />
+
+      {/* Ballon */}
+      <div className="ballon text-6xl">
+        ⚽
       </div>
-    );
-  }
+
+      {/* Texte */}
+      <p className="mt-6 text-2xl font-semibold text-[#D8AA82]">
+        Chargement du concours...
+      </p>
+
+      {/* Points animés */}
+      <div className="flex gap-2 mt-4">
+        <div className="w-3 h-3 bg-[#D8AA82] rounded-full animate-bounce"></div>
+        <div
+          className="w-3 h-3 bg-[#D8AA82] rounded-full animate-bounce"
+          style={{ animationDelay: "0.15s" }}
+        ></div>
+        <div
+          className="w-3 h-3 bg-[#D8AA82] rounded-full animate-bounce"
+          style={{ animationDelay: "0.3s" }}
+        ></div>
+      </div>
+
+    </div>
+  );
+}
 
 
   const matchsParGroupe = matches.reduce(
