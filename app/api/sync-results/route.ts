@@ -13,7 +13,7 @@ export async function GET() {
       .from("matches")
       .select("*")
       .not("api_match_id", "is", null)
-      .neq("status", "finished");
+      .in("status", ["scheduled", "live"]);
 
     if (error) {
       throw error;

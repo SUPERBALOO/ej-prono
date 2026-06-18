@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "../../lib/supabase/client";
-import Sidebar from "@/components/Sidebar";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -15,6 +14,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     chargerProfil();
+
+    // Synchronisation automatique des résultats
+    fetch("/api/sync-results").catch((err) =>
+      console.error("Erreur sync-results :", err)
+    );
   }, []);
 
   async function chargerProfil() {
@@ -45,8 +49,6 @@ export default function DashboardPage() {
   }
 
   return (
-
-    
     <main className="min-h-screen bg-[#1E3047] text-white flex">
       {/* SIDEBAR */}
       <aside className="w-64 bg-[#314357] flex flex-col">
@@ -104,7 +106,6 @@ export default function DashboardPage() {
 
       {/* CONTENU */}
       <section className="flex-1">
-        {/* HEADER */}
         <header className="bg-[#314357] px-8 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-[#C7A27F]">
@@ -120,7 +121,6 @@ export default function DashboardPage() {
           </button>
         </header>
 
-        {/* PAGE */}
         <div className="p-8">
           <h2 className="text-5xl font-bold mb-3">
             Bonjour {pseudo} 👋
@@ -130,7 +130,6 @@ export default function DashboardPage() {
             Bienvenue sur EJ Prono
           </p>
 
-          {/* BLOC ADMIN */}
           {isAdmin && (
             <div className="bg-[#314357] p-6 rounded-xl mb-8">
               <h3 className="text-2xl font-bold mb-4">
@@ -146,7 +145,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* CARTES */}
           <div className="grid md:grid-cols-3 gap-6">
             <div className="bg-[#314357] p-6 rounded-xl">
               <h3 className="text-2xl font-bold mb-3">

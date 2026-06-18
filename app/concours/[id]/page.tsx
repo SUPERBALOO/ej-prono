@@ -37,9 +37,19 @@ export default function ConcoursDetailPage() {
  
 
   
-  useEffect(() => {
-    chargerConcours();
-  }, []);
+useEffect(() => {
+
+  const interval = setInterval(() => {
+
+    if (onglet === "matchs") {
+      chargerConcours();
+    }
+
+  }, 60000);
+
+  return () => clearInterval(interval);
+
+}, [onglet]);
 
 
 async function chargerConcours() {
