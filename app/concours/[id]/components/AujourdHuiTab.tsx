@@ -44,7 +44,7 @@ export default function AujourdHuiTab({
   return (
     <div className="space-y-4">
 
-      <h2 className="text-3xl md:text-4xl font-bold">
+      <h2 className="text-3xl md:text-3xl font-bold">
         🔥 Aujourd'hui
       </h2>
 
@@ -54,7 +54,9 @@ export default function AujourdHuiTab({
         </div>
       )}
 
-      {matchs48h.map((match) => {
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+  {matchs48h.map((match) => {
 
         const tendance = tendances?.[match.id];
 
@@ -79,7 +81,7 @@ export default function AujourdHuiTab({
 
           <div
             key={match.id}
-            className="bg-[#42546B] rounded-2xl p-4"
+            className="bg-[#42546B] rounded-2xl p-3"
           >
 
             {/* HEADER */}
@@ -166,6 +168,7 @@ export default function AujourdHuiTab({
               </div>
 
             </div>
+            
 
  {/* SCORE */}
 
@@ -408,7 +411,7 @@ export default function AujourdHuiTab({
 
             {/* FORME DES EQUIPES */}
 
-            <div className="grid md:grid-cols-2 gap-4 mt-5">
+            <div className="grid md:grid-cols-2 gap-3 mt-5">
 
               {[match.home_team, match.away_team].map(
                 (equipe) => (
@@ -466,8 +469,10 @@ export default function AujourdHuiTab({
           </div>
 
         );
-      })}
-
+       })}
     </div>
+
+  </div>
+
   );
 }
