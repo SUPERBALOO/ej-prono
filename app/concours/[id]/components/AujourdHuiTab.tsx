@@ -42,7 +42,7 @@ export default function AujourdHuiTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
 
       <h2 className="text-3xl md:text-4xl font-bold">
         🔥 Aujourd'hui
@@ -79,7 +79,7 @@ export default function AujourdHuiTab({
 
           <div
             key={match.id}
-            className="bg-[#42546B] rounded-2xl p-4 md:p-5"
+            className="bg-[#42546B] rounded-2xl p-4"
           >
 
             {/* HEADER */}
@@ -167,23 +167,34 @@ export default function AujourdHuiTab({
 
             </div>
 
-            {/* SCORE */}
+ {/* SCORE */}
 
-            {(match.status === "live" ||
-              match.status === "finished") && (
+{(match.status === "live" ||
+  match.status === "finished") && (
 
-              <div className="text-center mt-5">
+  <div className="mt-5 flex items-center justify-center gap-6">
 
-                <div className="text-4xl md:text-5xl font-bold text-[#D8AA82]">
-                  {match.home_score ?? 0}
-                  {" - "}
-                  {match.away_score ?? 0}
-                </div>
+    <div className="text-center">
+      <div className="font-semibold">
+        {match.home_team}
+      </div>
+    </div>
 
-              </div>
+    <div className="text-4xl md:text-5xl font-bold text-[#D8AA82]">
+      {match.home_score ?? 0}
+      {" - "}
+      {match.away_score ?? 0}
+    </div>
 
-            )}
+    <div className="text-center">
+      <div className="font-semibold">
+        {match.away_team}
+      </div>
+    </div>
 
+  </div>
+
+)}
             {/* PRONOSTIC */}
 
             <div className="mt-6">
@@ -284,72 +295,120 @@ export default function AujourdHuiTab({
 
             </div>
 
-            {/* TENDANCE */}
+           {/* TENDANCE */}
 
-            <div className="mt-6">
+<div className="mt-5">
 
-              <h3 className="font-bold mb-3">
-                📊 Tendance des joueurs
-              </h3>
+  <h3 className="font-bold mb-3">
+    📊 Tendance des joueurs
+  </h3>
 
-              <div className="space-y-2">
+  <div className="space-y-3">
 
-                <div className="bg-[#33465D] p-2 rounded-lg">
-                  🏠 Victoire domicile : {homePct}%
-                </div>
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span>🏠 Victoire domicile</span>
+        <span>{homePct}%</span>
+      </div>
 
-                <div className="bg-[#33465D] p-2 rounded-lg">
-                  🤝 Match nul : {drawPct}%
-                </div>
+      <div className="h-3 bg-[#33465D] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-green-500"
+          style={{ width: `${homePct}%` }}
+        />
+      </div>
+    </div>
 
-                <div className="bg-[#33465D] p-2 rounded-lg">
-                  ✈️ Victoire extérieur : {awayPct}%
-                </div>
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span>🤝 Match nul</span>
+        <span>{drawPct}%</span>
+      </div>
 
-              </div>
+      <div className="h-3 bg-[#33465D] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-yellow-500"
+          style={{ width: `${drawPct}%` }}
+        />
+      </div>
+    </div>
 
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span>✈️ Victoire extérieur</span>
+        <span>{awayPct}%</span>
+      </div>
+
+      <div className="h-3 bg-[#33465D] rounded-full overflow-hidden">
+        <div
+          className="h-full bg-blue-500"
+          style={{ width: `${awayPct}%` }}
+        />
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+ {/* SCORES LES PLUS JOUES */}
+
+<div className="mt-5">
+
+  <h3 className="font-bold mb-3">
+    ⭐ Scores les plus joués
+  </h3>
+
+  <div className="flex flex-wrap gap-2">
+
+    {tendance?.topScores?.length > 0 ? (
+
+      tendance.topScores.map(
+        ([score, nb]: any, index: number) => {
+
+          let icon = "⭐";
+          let bg = "bg-[#33465D]";
+
+          if (index === 0) {
+            icon = "🏆";
+            bg = "bg-yellow-600";
+          } else if (index === 1) {
+            icon = "🥈";
+            bg = "bg-slate-500";
+          } else if (index === 2) {
+            icon = "🥉";
+            bg = "bg-amber-700";
+          }
+
+          return (
+
+            <div
+              key={score}
+              className={`${bg} px-3 py-2 rounded-lg font-medium`}
+            >
+              {icon} {score} ×{nb}
             </div>
 
-            {/* SCORES LES PLUS JOUES */}
+          );
 
-            <div className="mt-6">
+        }
+      )
 
-              <h3 className="font-bold mb-3">
-                ⭐ Scores les plus joués
-              </h3>
+    ) : (
 
-              <div className="flex flex-wrap gap-2">
+      <div className="text-gray-400">
+        Aucun pronostic enregistré
+      </div>
 
-                {tendance?.topScores?.length > 0 ? (
+    )}
 
-                  tendance.topScores.map(
-                    ([score, nb]: any) => (
+  </div>
 
-                      <div
-                        key={score}
-                        className="bg-[#33465D] px-3 py-2 rounded-lg"
-                      >
-                        ⭐ {score} ({nb})
-                      </div>
-
-                    )
-                  )
-
-                ) : (
-
-                  <div className="text-gray-400">
-                    Aucun pronostic enregistré
-                  </div>
-
-                )}
-
-              </div>
-
-            </div>
+</div>
 
             {/* FORME DES EQUIPES */}
 
-            <div className="grid md:grid-cols-2 gap-6 mt-8">
+            <div className="grid md:grid-cols-2 gap-4 mt-5">
 
               {[match.home_team, match.away_team].map(
                 (equipe) => (
