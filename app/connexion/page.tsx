@@ -19,7 +19,7 @@ export default function Connexion() {
       } = await supabase.auth.getSession();
 
       if (session) {
-        router.replace("/dashboard");
+        router.replace("/concours");
       }
     };
 
@@ -37,7 +37,7 @@ export default function Connexion() {
     if (error) {
       setMessage("Email ou mot de passe incorrect.");
     } else {
-      router.push("/dashboard");
+      router.push("/concours");
     }
   };
 
