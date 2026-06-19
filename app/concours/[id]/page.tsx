@@ -130,7 +130,11 @@ console.log("PROFIL", profil);
   setMatches(matchsData || []);
   const now = new Date();
 
-const limite48h = new Date(
+const limitePasse = new Date(
+  now.getTime() - 24 * 60 * 60 * 1000
+);
+
+const limiteFuture = new Date(
   now.getTime() + 48 * 60 * 60 * 1000
 );
 
@@ -141,8 +145,8 @@ const prochainsMatchs =
       new Date(m.match_date);
 
     return (
-      dateMatch >= now &&
-      dateMatch <= limite48h
+      dateMatch >= limitePasse &&
+      dateMatch <= limiteFuture
     );
 
   });
@@ -274,25 +278,37 @@ async function enregistrerPronostic(matchId: string) {
     return;
   }
 
-  const response = await fetch("/api/predictions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      user_id: user.id,
-      match_id: matchId,
-      pred_home: Number(pronostic.pred_home),
-      pred_away: Number(pronostic.pred_away),
-    }),
-  });
+const response = await fetch("/api/predictions", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    user_id: user.id,
+    match_id: matchId,
+    pred_home: Number(pronostic.pred_home),
+    pred_away: Number(pronostic.pred_away),
+  }),
+});
 
-  const result = await response.json();
+const result = await response.json();
 
-  if (!response.ok) {
-    alert(result.error || "Erreur");
-    return;
-  }
+if (!response.ok) {
+  alert(result.error || "Erreur");
+  return;
+}
+
+const nouvelleTendance =
+  await chargerTendances(matchId);
+
+setTendances((prev: any) => ({
+  ...prev,
+  [matchId]: nouvelleTendance,
+}));
+
+
+
+
 
   setSavedPredictions((prev: any) => ({
   ...prev,
@@ -337,8 +353,6 @@ async function chargerTendances(matchId: string) {
   let draw = 0;
   let away = 0;
 
-   
-  const total = home + draw + away;
   const scores: Record<string, number> = {};
 
   (data || []).forEach((p: any) => {
@@ -352,18 +366,35 @@ async function chargerTendances(matchId: string) {
 
     scores[score] =
       (scores[score] || 0) + 1;
+
   });
+
+  const total =
+    home + draw + away;
 
   return {
     home,
     draw,
     away,
-     homePct: total ? Math.round((home / total) * 100) : 0,
-    drawPct: total ? Math.round((draw / total) * 100) : 0,
-    awayPct: total ? Math.round((away / total) * 100) : 0,
+
+    homePct:
+      total > 0
+        ? Math.round((home / total) * 100)
+        : 0,
+
+    drawPct:
+      total > 0
+        ? Math.round((draw / total) * 100)
+        : 0,
+
+    awayPct:
+      total > 0
+        ? Math.round((away / total) * 100)
+        : 0,
+
     topScores: Object.entries(scores)
       .sort((a: any, b: any) => b[1] - a[1])
-      .slice(0, 3),
+      .slice(0, 5),
   };
 }
 
@@ -381,7 +412,7 @@ async function chargerFormeEquipe(
     .order("match_date", {
       ascending: false,
     })
-    .limit(3);
+    .limit(5);
 
   return data || [];
 }
