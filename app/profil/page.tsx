@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
+import PushReminderButton from "@/components/PushReminderButton";
 
 export default function ProfilPage() {
   const router = useRouter();
@@ -239,6 +240,25 @@ export default function ProfilPage() {
                   {message}
                 </p>
               )}
+            </div>
+
+            {/* RAPPELS */}
+            <div className="mt-6 md:mt-8 bg-[#2d3b4b] rounded-xl p-5 md:p-8 shadow-lg">
+
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">
+                Rappels pronostics
+              </h2>
+
+              <p className="text-gray-300 mb-5">
+                Recevez une notification sur ce telephone quand il reste des pronostics a faire avant un match.
+              </p>
+
+              <PushReminderButton />
+
+              <p className="text-sm text-gray-400 mt-4">
+                Sur iPhone, ajoutez EJ Prono a l'ecran d'accueil avant d'activer les rappels.
+              </p>
+
             </div>
 
             {/* SECURITE */}
