@@ -51,7 +51,7 @@ useEffect(() => {
   const interval = setInterval(() => {
 
     if (onglet === "matchs") {
-      chargerConcours();
+      chargerConcours(false);
     }
 
   }, 60000);
@@ -61,8 +61,10 @@ useEffect(() => {
 }, [onglet]);
 
 
-async function chargerConcours() {
-   setLoading(true);
+async function chargerConcours(showLoader = true) {
+  if (showLoader) {
+    setLoading(true);
+  }
   console.time("chargerConcours");
 
   try {
@@ -71,14 +73,12 @@ async function chargerConcours() {
 
   
 
-  const rankingResponse = await fetch(
-  `/api/ranking/${concoursId}`
-    );
-
-    const rankingData =
-     await rankingResponse.json();
-
-setClassement(rankingData);
+  fetch(`/api/ranking/${concoursId}`)
+    .then((response) => response.json())
+    .then((rankingData) =>
+      setClassement(rankingData)
+    )
+    .catch(console.error);
   
   const {
   data: { user },
@@ -97,9 +97,6 @@ const { data: pronos } = await supabase
   .select("*")
   .eq("user_id", user?.id);
 
-  console.log("USER", user.id);
-console.log("PRONOS", pronos);
-
 const savedMap: any = {};
 const predictionsMap: any = {};
 
@@ -117,9 +114,6 @@ setSavedPredictions(savedMap);
 setPredictions(predictionsMap);
 setUserPronosCount(pronos?.length || 0);
 
-console.log("USER", user.id);
-console.log("PROFIL", profil);
-
   // Chargement des matchs
   let { data: matchsData } = await supabase
     .from("matches")
@@ -136,18 +130,7 @@ console.log("PROFIL", profil);
     );
 
   if (hasMissingOdds) {
-    await fetch("/api/update-fifa-rankings");
-
-    const { data: refreshedMatches } =
-      await supabase
-        .from("matches")
-        .select("*")
-        .eq("concours_id", concoursId)
-        .order("match_date", {
-          ascending: true,
-        });
-
-    matchsData = refreshedMatches || matchsData;
+    actualiserCotesManquantes();
   }
 
   setMatches(matchsData || []);
@@ -176,28 +159,7 @@ const prochainsMatchs =
 
 setMatchs48h(prochainsMatchs);
 
-const tendancesMap: any = {};
-const formesMap: any = {};
-
-for (const match of prochainsMatchs) {
-
-  tendancesMap[match.id] =
-    await chargerTendances(match.id);
-
-  formesMap[match.home_team] =
-    await chargerFormeEquipe(
-      match.home_team
-    );
-
-  formesMap[match.away_team] =
-    await chargerFormeEquipe(
-      match.away_team
-    );
-
-}
-
-setTendances(tendancesMap);
-setFormesEquipes(formesMap);
+chargerDetailsAujourdhui(prochainsMatchs);
   setTotalMatchesCount(matchsData?.length || 0);
 
 
@@ -261,21 +223,12 @@ if (!isAdminUser) {
     );
   }
 
-  // Admin
-  
-
-  if (user) {
-    const { data: profil } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    setIsAdmin(isAdminUser);
-  }
+  setIsAdmin(isAdminUser);
   
   } finally {
-    setLoading(false);
+    if (showLoader) {
+      setLoading(false);
+    }
     console.timeEnd("chargerConcours");
 
   }
@@ -419,6 +372,167 @@ async function chargerTendances(matchId: string) {
       .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 5),
   };
+}
+
+function getMatchsAutourAujourdhui(
+  matchsData: any[]
+) {
+  const now = new Date();
+
+  const limitePasse = new Date(
+    now.getTime() - 24 * 60 * 60 * 1000
+  );
+
+  const limiteFuture = new Date(
+    now.getTime() + 48 * 60 * 60 * 1000
+  );
+
+  return matchsData.filter((m: any) => {
+    const dateMatch =
+      new Date(m.match_date);
+
+    return (
+      dateMatch >= limitePasse &&
+      dateMatch <= limiteFuture
+    );
+  });
+}
+
+async function chargerDetailsAujourdhui(
+  prochainsMatchs: any[]
+) {
+  if (!prochainsMatchs.length) {
+    setTendances({});
+    setFormesEquipes({});
+    return;
+  }
+
+  const matchIds = prochainsMatchs.map(
+    (match: any) => match.id
+  );
+
+  const equipes = Array.from(
+    new Set(
+      prochainsMatchs.flatMap((match: any) => [
+        match.home_team,
+        match.away_team,
+      ])
+    )
+  );
+
+  const tendancesPromise = supabase
+    .from("predictions")
+    .select("*")
+    .in("match_id", matchIds);
+
+  const formesPromise = Promise.all(
+    equipes.map(async (equipe: any) => [
+      equipe,
+      await chargerFormeEquipe(equipe),
+    ])
+  );
+
+  const [{ data: pronos }, formesEntries] =
+    await Promise.all([
+      tendancesPromise,
+      formesPromise,
+    ]);
+
+  const tendancesMap: any = {};
+
+  for (const matchId of matchIds) {
+    tendancesMap[matchId] = {
+      home: 0,
+      draw: 0,
+      away: 0,
+      homePct: 0,
+      drawPct: 0,
+      awayPct: 0,
+      topScores: [],
+    };
+  }
+
+  const scoresParMatch: any = {};
+
+  (pronos || []).forEach((p: any) => {
+    const tendance =
+      tendancesMap[p.match_id];
+
+    if (!tendance) return;
+
+    if (p.pred_home > p.pred_away) tendance.home++;
+    else if (p.pred_home < p.pred_away) tendance.away++;
+    else tendance.draw++;
+
+    const score =
+      `${p.pred_home}-${p.pred_away}`;
+
+    scoresParMatch[p.match_id] =
+      scoresParMatch[p.match_id] || {};
+
+    scoresParMatch[p.match_id][score] =
+      (scoresParMatch[p.match_id][score] || 0) + 1;
+  });
+
+  Object.entries(tendancesMap).forEach(
+    ([matchId, tendance]: any) => {
+      const total =
+        tendance.home +
+        tendance.draw +
+        tendance.away;
+
+      tendance.homePct =
+        total > 0
+          ? Math.round((tendance.home / total) * 100)
+          : 0;
+
+      tendance.drawPct =
+        total > 0
+          ? Math.round((tendance.draw / total) * 100)
+          : 0;
+
+      tendance.awayPct =
+        total > 0
+          ? Math.round((tendance.away / total) * 100)
+          : 0;
+
+      tendance.topScores =
+        Object.entries(scoresParMatch[matchId] || {})
+          .sort((a: any, b: any) => b[1] - a[1])
+          .slice(0, 5);
+    }
+  );
+
+  setTendances(tendancesMap);
+  setFormesEquipes(
+    Object.fromEntries(formesEntries)
+  );
+}
+
+async function actualiserCotesManquantes() {
+  try {
+    await fetch("/api/update-fifa-rankings");
+
+    const { data: refreshedMatches } =
+      await supabase
+        .from("matches")
+        .select("*")
+        .eq("concours_id", concoursId)
+        .order("match_date", {
+          ascending: true,
+        });
+
+    if (!refreshedMatches) return;
+
+    setMatches(refreshedMatches);
+
+    const prochainsMatchs =
+      getMatchsAutourAujourdhui(refreshedMatches);
+
+    setMatchs48h(prochainsMatchs);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 async function chargerFormeEquipe(
