@@ -35,7 +35,26 @@ Optionnel, pour proteger les routes cron :
 CRON_SECRET=une-valeur-longue-et-aleatoire
 ```
 
-## 3. Mobile
+Optionnel, pour changer la fenetre de rappel :
+
+```text
+PUSH_REMINDER_WINDOW_HOURS=24
+```
+
+## 3. Cron Vercel Hobby
+
+Sur Vercel Hobby, les cron jobs ne peuvent tourner qu'une fois par jour.
+Le cron inclus dans `vercel.json` lance donc les rappels tous les jours a
+08:00 UTC et cherche les matchs des prochaines 24h.
+
+Pour des rappels exactement quelques heures avant chaque match, utiliser
+Vercel Pro ou un scheduler externe appele toutes les heures sur :
+
+```text
+/api/push/send-reminders
+```
+
+## 4. Mobile
 
 Android : Chrome/Edge peuvent recevoir les notifications apres autorisation.
 

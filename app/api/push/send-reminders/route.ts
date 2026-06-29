@@ -13,7 +13,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const REMINDER_TYPE = "6h";
+const REMINDER_WINDOW_HOURS = Number(
+  process.env.PUSH_REMINDER_WINDOW_HOURS || 24
+);
+
+const REMINDER_TYPE = `${REMINDER_WINDOW_HOURS}h`;
 
 function configureWebPush() {
   const publicKey =
@@ -59,7 +63,11 @@ export async function GET(req: NextRequest) {
 
     const now = new Date();
     const reminderLimit = new Date(
-      now.getTime() + 6 * 60 * 60 * 1000
+      now.getTime() +
+        REMINDER_WINDOW_HOURS *
+          60 *
+          60 *
+          1000
     );
 
     const { data: matches, error: matchesError } =
@@ -209,7 +217,7 @@ export async function GET(req: NextRequest) {
               row.subscription as PushSubscription,
               JSON.stringify({
                 title: "EJ Prono - rappel",
-                body: `${match.home_team} vs ${match.away_team} commence bientot. Pense a faire ton prono.`,
+                body: `Tu as encore un prono a faire : ${match.home_team} vs ${match.away_team}.`,
                 icon: "/icon-192.png",
                 badge: "/icon-192.png",
                 url: `/concours/${match.concours_id}?tab=pronostics`,
