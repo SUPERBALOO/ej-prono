@@ -32,7 +32,7 @@ function getScoreValue(
 
 export async function GET() {
   try {
-    const { data: matches, error } = await supabase
+    const { data: activeMatches, error } = await supabase
       .from("matches")
       .select("*")
       .not("api_match_id", "is", null)
@@ -41,6 +41,33 @@ export async function GET() {
     if (error) {
       throw error;
     }
+
+    const recentLimit = new Date(
+      Date.now() - 7 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const {
+      data: recentFinishedMatches,
+      error: recentFinishedError,
+    } = await supabase
+      .from("matches")
+      .select("*")
+      .not("api_match_id", "is", null)
+      .eq("status", "finished")
+      .gte("match_date", recentLimit);
+
+    if (recentFinishedError) {
+      throw recentFinishedError;
+    }
+
+    const matches = Array.from(
+      new Map(
+        [
+          ...(activeMatches || []),
+          ...(recentFinishedMatches || []),
+        ].map((match) => [match.id, match])
+      ).values()
+    );
 
     if (!matches?.length) {
       return NextResponse.json({
@@ -105,6 +132,10 @@ export async function GET() {
             data.minute ?? null,
         };
 
+        const scoreChanged =
+          match.home_score !== updateData.home_score ||
+          match.away_score !== updateData.away_score;
+
         const { error: updateError } =
           await supabase
             .from("matches")
@@ -124,7 +155,8 @@ export async function GET() {
         // Match qui vient juste de se terminer
         if (
           status === "finished" &&
-          match.status !== "finished"
+          (match.status !== "finished" ||
+            scoreChanged)
         ) {
           const recalculated =
             await calculatePoints(match.id);
