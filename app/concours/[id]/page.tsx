@@ -81,34 +81,6 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  if (
-    notificationPermission !== "granted" ||
-    upcomingReminderMatches.length === 0
-  ) {
-    return;
-  }
-
-  upcomingReminderMatches.forEach((match: any) => {
-    const storageKey =
-      `reminder-notified-${match.id}`;
-
-    if (sessionStorage.getItem(storageKey)) {
-      return;
-    }
-
-    new Notification("EJ Prono - rappel", {
-      body: `${match.home_team} vs ${match.away_team} commence bientot. Pense a faire ton prono.`,
-      icon: "/icon-192.png",
-    });
-
-    sessionStorage.setItem(storageKey, "1");
-  });
-}, [
-  notificationPermission,
-  upcomingReminderMatches,
-]);
-
-useEffect(() => {
 
   const interval = setInterval(() => {
 
@@ -598,9 +570,13 @@ async function actualiserCotesManquantes() {
 }
 
 async function activerNotificationsRappel() {
-  if (!("Notification" in window)) {
+  if (
+    !("Notification" in window) ||
+    !("serviceWorker" in navigator) ||
+    !("PushManager" in window)
+  ) {
     alert(
-      "Votre navigateur ne supporte pas les notifications."
+      "Votre navigateur ne supporte pas les notifications push."
     );
     return;
   }
@@ -609,6 +585,101 @@ async function activerNotificationsRappel() {
     await Notification.requestPermission();
 
   setNotificationPermission(permission);
+
+  if (permission !== "granted") {
+    alert(
+      "Les notifications ne sont pas autorisÃ©es sur cet appareil."
+    );
+    return;
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user) {
+    alert("Vous devez Ãªtre connectÃ©");
+    return;
+  }
+
+  const keyResponse = await fetch(
+    "/api/push/public-key"
+  );
+
+  const { publicKey } =
+    await keyResponse.json();
+
+  if (!publicKey) {
+    alert(
+      "Les notifications push ne sont pas encore configurÃ©es."
+    );
+    return;
+  }
+
+  await navigator.serviceWorker.register("/sw.js");
+
+  const registration =
+    await navigator.serviceWorker.ready;
+
+  let subscription =
+    await registration.pushManager.getSubscription();
+
+  if (!subscription) {
+    subscription =
+      await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey:
+          urlBase64ToUint8Array(publicKey),
+      });
+  }
+
+  const response = await fetch(
+    "/api/push/subscribe",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization:
+          `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const result = await response.json();
+
+    alert(
+      result.error ||
+        "Impossible d'activer les notifications."
+    );
+    return;
+  }
+
+  alert("Notifications de rappel activÃ©es.");
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat(
+    (4 - (base64String.length % 4)) % 4
+  );
+
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+  const outputArray =
+    new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; i++) {
+    outputArray[i] =
+      rawData.charCodeAt(i);
+  }
+
+  return outputArray;
 }
 
 async function chargerFormeEquipe(
@@ -918,6 +989,12 @@ className="
                         Activer les rappels
                       </button>
                     )}
+
+                  {notificationPermission === "granted" && (
+                    <div className="bg-white/70 text-[#1E3047] px-4 py-3 rounded-lg font-bold text-center">
+                      Notifications activees
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
