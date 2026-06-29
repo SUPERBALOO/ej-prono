@@ -62,6 +62,27 @@ function configureWebPush() {
   );
 }
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return "Erreur inconnue";
+}
+
 export async function GET(req: NextRequest) {
   try {
     const cronSecret =
@@ -295,10 +316,7 @@ export async function GET(req: NextRequest) {
       remindersSent,
     });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Erreur inconnue";
+    const message = getErrorMessage(error);
 
     console.error(error);
 
