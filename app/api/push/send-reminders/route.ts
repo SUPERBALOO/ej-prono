@@ -13,9 +13,28 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const REMINDER_WINDOW_HOURS = Number(
-  process.env.PUSH_REMINDER_WINDOW_HOURS || 24
-);
+function getReminderWindowHours() {
+  const rawValue =
+    process.env.PUSH_REMINDER_WINDOW_HOURS;
+
+  const parsedValue = Number(rawValue || 6);
+
+  if (
+    Number.isFinite(parsedValue) &&
+    parsedValue > 0
+  ) {
+    return parsedValue;
+  }
+
+  console.warn(
+    `PUSH_REMINDER_WINDOW_HOURS invalide (${rawValue}), utilisation de 6h.`
+  );
+
+  return 6;
+}
+
+const REMINDER_WINDOW_HOURS =
+  getReminderWindowHours();
 
 const REMINDER_TYPE = `${REMINDER_WINDOW_HOURS}h`;
 

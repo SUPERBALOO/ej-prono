@@ -41,6 +41,8 @@ Optionnel, pour changer la fenetre de rappel :
 PUSH_REMINDER_WINDOW_HOURS=6
 ```
 
+La valeur doit etre un nombre seul, par exemple `6`, sans `h`.
+
 ## 3. Cron
 
 Sur Vercel Hobby, on garde seulement le cron quotidien du recalcul FIFA dans
