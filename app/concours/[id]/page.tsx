@@ -121,11 +121,34 @@ console.log("USER", user.id);
 console.log("PROFIL", profil);
 
   // Chargement des matchs
-  const { data: matchsData } = await supabase
+  let { data: matchsData } = await supabase
     .from("matches")
     .select("*")
     .eq("concours_id", concoursId)
     .order("match_date", { ascending: true });
+
+  const hasMissingOdds =
+    (matchsData || []).some(
+      (match: any) =>
+        match.cote_home == null ||
+        match.cote_draw == null ||
+        match.cote_away == null
+    );
+
+  if (hasMissingOdds) {
+    await fetch("/api/update-fifa-rankings");
+
+    const { data: refreshedMatches } =
+      await supabase
+        .from("matches")
+        .select("*")
+        .eq("concours_id", concoursId)
+        .order("match_date", {
+          ascending: true,
+        });
+
+    matchsData = refreshedMatches || matchsData;
+  }
 
   setMatches(matchsData || []);
   const now = new Date();
@@ -909,14 +932,14 @@ className="
       />
     )}
     <span className="font-bold">
-      {match.cote_home}
+      {match.cote_home ?? "--"}
     </span>
   </div>
 
   <div className="bg-gray-600 px-3 py-2 rounded flex items-center gap-2">
     <span>🤝</span>
     <span className="font-bold">
-      {match.cote_draw}
+      {match.cote_draw ?? "--"}
     </span>
   </div>
 
@@ -929,7 +952,7 @@ className="
       />
     )}
     <span className="font-bold">
-      {match.cote_away}
+      {match.cote_away ?? "--"}
     </span>
   </div>
 

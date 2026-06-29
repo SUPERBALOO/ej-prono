@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildRankingsMap,
+  getMatchOddsUpdate,
+} from "@/lib/odds";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -113,11 +117,15 @@ export async function POST(req: NextRequest) {
       `${matchsValides.length} matchs valides sur ${data.matches.length}`
     );
 
-    const { error } = await supabase
+    const {
+      data: importedMatches,
+      error,
+    } = await supabase
       .from("matches")
       .upsert(matchsValides, {
         onConflict: "api_match_id",
-      });
+      })
+      .select("*");
 
     if (error) {
       console.error("Erreur Supabase :", error);
@@ -128,11 +136,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { data: rankings } = await supabase
+      .from("fifa_rankings")
+      .select("team_name,fifa_rank,fifa_points");
+
+    const rankingsMap =
+      buildRankingsMap(rankings || []);
+
+    let oddsUpdated = 0;
+    let oddsSkipped = 0;
+
+    for (const match of importedMatches || []) {
+      const oddsUpdate =
+        getMatchOddsUpdate(
+          match,
+          rankingsMap
+        );
+
+      if (!oddsUpdate) {
+        oddsSkipped++;
+        continue;
+      }
+
+      const { error: oddsError } =
+        await supabase
+          .from("matches")
+          .update(oddsUpdate)
+          .eq("id", match.id);
+
+      if (oddsError) {
+        console.error(
+          "Erreur mise à jour cotes :",
+          match.id,
+          oddsError
+        );
+        oddsSkipped++;
+      } else {
+        oddsUpdated++;
+      }
+    }
+
     return NextResponse.json({
       success: true,
       imported: matchsValides.length,
       ignored:
         data.matches.length - matchsValides.length,
+      oddsUpdated,
+      oddsSkipped,
     });
 
   } catch (err: any) {

@@ -1,6 +1,10 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildRankingsMap,
+  getMatchOddsUpdate,
+} from "@/lib/odds";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -158,25 +162,8 @@ export async function GET() {
       throw rankingsError;
     }
 
-    const rankingsMap = new Map<
-      string,
-      {
-        rank: number;
-        points: number;
-      }
-    >();
-
-    for (const team of rankings) {
-      rankingsMap.set(
-        normalizeTeamName(
-          team.team_name
-        ),
-        {
-          rank: team.fifa_rank,
-          points: team.fifa_points,
-        }
-      );
-    }
+    const rankingsMap =
+      buildRankingsMap(rankings);
 
     const {
       data: matches,
@@ -195,21 +182,13 @@ export async function GET() {
     let skippedMatches = 0;
 
     for (const match of matches || []) {
-      const home =
-        rankingsMap.get(
-          normalizeTeamName(
-            match.home_team
-          )
+      const oddsUpdate =
+        getMatchOddsUpdate(
+          match,
+          rankingsMap
         );
 
-      const away =
-        rankingsMap.get(
-          normalizeTeamName(
-            match.away_team
-          )
-        );
-
-      if (!home || !away) {
+      if (!oddsUpdate) {
         console.log(
           `Classement FIFA introuvable : ${match.home_team} vs ${match.away_team}`
         );
@@ -218,43 +197,10 @@ export async function GET() {
         continue;
       }
 
-      const odds =
-        calculateOdds(
-          home.points,
-          away.points
-        );
-
       const { error } =
         await supabase
           .from("matches")
-          .update({
-            fifa_home_points:
-              home.points,
-
-            fifa_away_points:
-              away.points,
-
-            home_probability:
-              odds.homeProbability,
-
-            draw_probability:
-              odds.drawProbability,
-
-            away_probability:
-              odds.awayProbability,
-
-            cote_home:
-              odds.coteHome,
-
-            cote_draw:
-              odds.coteDraw,
-
-            cote_away:
-              odds.coteAway,
-
-            odds_updated_at:
-              new Date().toISOString(),
-          })
+          .update(oddsUpdate)
           .eq("id", match.id);
 
       if (error) {
