@@ -38,34 +38,30 @@ CRON_SECRET=une-valeur-longue-et-aleatoire
 Optionnel, pour changer la fenetre de rappel :
 
 ```text
-PUSH_REMINDER_WINDOW_HOURS=24
+PUSH_REMINDER_WINDOW_HOURS=6
 ```
 
-## 3. Cron Vercel Hobby
+## 3. Cron
 
-Sur Vercel Hobby, les cron jobs ne peuvent tourner qu'une fois par jour.
-Le cron inclus dans `vercel.json` lance donc les rappels tous les jours a
-10:00 UTC, soit 12:00 a Paris pendant l'heure d'ete, et cherche les matchs
-des prochaines 24h. La mise a jour FIFA est lancee au meme horaire.
+Sur Vercel Hobby, on garde seulement le cron quotidien du recalcul FIFA dans
+`vercel.json`. Il tourne a 10:00 UTC, soit 12:00 a Paris pendant l'heure
+d'ete.
 
-Pour des rappels exactement quelques heures avant chaque match, utiliser
-Vercel Pro ou un scheduler externe appele toutes les heures sur :
-
-```text
-/api/push/send-reminders
-```
-
-Avec cron-job.org, creer un job en GET vers :
+Pour les rappels de pronostics, utiliser cron-job.org en GET vers :
 
 ```text
 https://ej-prono.vercel.app/api/push/send-reminders
 ```
 
-Et, si besoin, un autre job en GET vers :
+Reglage conseille avec cron-job.org :
 
 ```text
-https://ej-prono.vercel.app/api/update-fifa-rankings
+0 */3 * * *
 ```
+
+Avec `PUSH_REMINDER_WINDOW_HOURS=6`, le job cherche les matchs des 6 prochaines
+heures. Le journal `push_reminder_logs` evite d'envoyer plusieurs fois le meme
+rappel pour le meme match.
 
 Si `CRON_SECRET` est configure dans Vercel, ajouter l'en-tete HTTP :
 
