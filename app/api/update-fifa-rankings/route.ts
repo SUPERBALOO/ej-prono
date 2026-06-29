@@ -171,8 +171,9 @@ export async function GET() {
     } = await supabase
       .from("matches")
       .select("*")
-      .is("home_score", null)
-      .is("away_score", null);
+      .or(
+        "home_score.is.null,away_score.is.null,cote_home.is.null,cote_draw.is.null,cote_away.is.null"
+      );
 
     if (matchesError) {
       throw matchesError;

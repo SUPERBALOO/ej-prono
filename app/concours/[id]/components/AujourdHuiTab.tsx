@@ -283,15 +283,15 @@ export default function AujourdHuiTab({
               <div className="flex flex-wrap gap-3">
 
                 <div className="bg-green-700 px-3 py-2 rounded">
-                  🏠 {match.cote_home}
+                  🏠 {match.cote_home ?? "--"}
                 </div>
 
                 <div className="bg-gray-600 px-3 py-2 rounded">
-                  🤝 {match.cote_draw}
+                  🤝 {match.cote_draw ?? "--"}
                 </div>
 
                 <div className="bg-blue-700 px-3 py-2 rounded">
-                  ✈️ {match.cote_away}
+                  ✈️ {match.cote_away ?? "--"}
                 </div>
 
               </div>
