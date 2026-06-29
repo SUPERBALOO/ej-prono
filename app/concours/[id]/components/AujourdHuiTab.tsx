@@ -24,6 +24,12 @@ export default function AujourdHuiTab({
   enregistrerPronostic,
 }: Props) {
 
+  const hasFinalPhaseMatch = matchs48h.some(
+    (match) =>
+      match.phase &&
+      match.phase !== "GROUP_STAGE"
+  );
+
   function getResultIcon(match: any, equipe: string) {
     const isHome = match.home_team === equipe;
 
@@ -47,6 +53,12 @@ export default function AujourdHuiTab({
       <h2 className="text-3xl md:text-3xl font-bold">
         🔥 Aujourd'hui
       </h2>
+
+      {hasFinalPhaseMatch && (
+        <div className="bg-[#D8AA82] text-[#1E3047] rounded-xl p-4 font-semibold">
+          Info phases finales : les pronostics sont comptabilises sur le score a la fin du temps reglementaire (90 min), hors prolongation et tirs au but.
+        </div>
+      )}
 
       {matchs48h.length === 0 && (
         <div className="bg-[#42546B] rounded-2xl p-6 text-center">

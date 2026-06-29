@@ -7,6 +7,29 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getScoreValue(
+  score: any,
+  side: "home" | "away"
+) {
+  const regularTime =
+    score?.regularTime?.[side] ??
+    score?.regularTime?.[
+      side === "home" ? "homeTeam" : "awayTeam"
+    ];
+
+  if (regularTime !== null && regularTime !== undefined) {
+    return regularTime;
+  }
+
+  return (
+    score?.fullTime?.[side] ??
+    score?.fullTime?.[
+      side === "home" ? "homeTeam" : "awayTeam"
+    ] ??
+    null
+  );
+}
+
 export async function GET() {
   try {
     const { data: matches, error } = await supabase
@@ -68,10 +91,10 @@ export async function GET() {
 
         const updateData = {
           home_score:
-            data.score?.fullTime?.home ?? null,
+            getScoreValue(data.score, "home"),
 
           away_score:
-            data.score?.fullTime?.away ?? null,
+            getScoreValue(data.score, "away"),
 
           status,
 

@@ -546,6 +546,12 @@ const phaseLabels: Record<string, string> = {
   FINAL: "Finale",
 };
 
+const hasFinalPhaseMatch = matches.some(
+  (match: any) =>
+    match.phase &&
+    match.phase !== "GROUP_STAGE"
+);
+
   return (
     <div className="min-h-screen bg-[#1E3047] text-white flex">
       <Sidebar />
@@ -884,6 +890,12 @@ className="
     <h2 className="text-2xl md:text-4xl font-bold mb-6">
       🌍 Pronostics
     </h2>
+
+    {hasFinalPhaseMatch && (
+      <div className="bg-[#D8AA82] text-[#1E3047] rounded-xl p-4 font-semibold mb-6">
+        Info phases finales : les pronostics sont comptabilises sur le score a la fin du temps reglementaire (90 min), hors prolongation et tirs au but.
+      </div>
+    )}
 
     <div className="space-y-4">
 
