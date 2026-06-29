@@ -35,6 +35,10 @@ export default function ConcoursDetailPage() {
   const [matchs48h, setMatchs48h] = useState<any[]>([]);
   const [tendances, setTendances] = useState<any>({});
   const [formesEquipes, setFormesEquipes] = useState<any>({});
+  const [
+    notificationPermission,
+    setNotificationPermission,
+  ] = useState<NotificationPermission>("default");
   
   
 
@@ -45,6 +49,64 @@ export default function ConcoursDetailPage() {
 useEffect(() => {
   chargerConcours();
 }, []);
+
+const reminderWindowHours = 6;
+const upcomingReminderMatches = matches.filter(
+  (match: any) => {
+    const now = Date.now();
+    const matchTime = new Date(
+      match.match_date
+    ).getTime();
+
+    return (
+      match.status !== "finished" &&
+      matchTime > now &&
+      matchTime <=
+        now +
+          reminderWindowHours *
+            60 *
+            60 *
+            1000 &&
+      !savedPredictions[match.id]
+    );
+  }
+);
+
+useEffect(() => {
+  if ("Notification" in window) {
+    setNotificationPermission(
+      Notification.permission
+    );
+  }
+}, []);
+
+useEffect(() => {
+  if (
+    notificationPermission !== "granted" ||
+    upcomingReminderMatches.length === 0
+  ) {
+    return;
+  }
+
+  upcomingReminderMatches.forEach((match: any) => {
+    const storageKey =
+      `reminder-notified-${match.id}`;
+
+    if (sessionStorage.getItem(storageKey)) {
+      return;
+    }
+
+    new Notification("EJ Prono - rappel", {
+      body: `${match.home_team} vs ${match.away_team} commence bientot. Pense a faire ton prono.`,
+      icon: "/icon-192.png",
+    });
+
+    sessionStorage.setItem(storageKey, "1");
+  });
+}, [
+  notificationPermission,
+  upcomingReminderMatches,
+]);
 
 useEffect(() => {
 
@@ -535,6 +597,20 @@ async function actualiserCotesManquantes() {
   }
 }
 
+async function activerNotificationsRappel() {
+  if (!("Notification" in window)) {
+    alert(
+      "Votre navigateur ne supporte pas les notifications."
+    );
+    return;
+  }
+
+  const permission =
+    await Notification.requestPermission();
+
+  setNotificationPermission(permission);
+}
+
 async function chargerFormeEquipe(
   equipe: string
 ) {
@@ -805,6 +881,47 @@ className="
 
             </div>
           </div>
+
+          {upcomingReminderMatches.length > 0 && (
+            <div className="bg-[#D8AA82] text-[#1E3047] rounded-xl p-4 mb-8 shadow-lg">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <p className="font-bold text-lg">
+                    Rappel pronostics
+                  </p>
+
+                  <p className="font-medium">
+                    Il vous reste {upcomingReminderMatches.length} match
+                    {upcomingReminderMatches.length > 1 ? "s" : ""} a pronostiquer dans les {reminderWindowHours} prochaines heures.
+                  </p>
+
+                  <p className="text-sm mt-1">
+                    Prochain match : {upcomingReminderMatches[0].home_team} vs {upcomingReminderMatches[0].away_team}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => setOnglet("pronostics")}
+                    className="bg-[#1E3047] text-white px-4 py-3 rounded-lg font-bold"
+                  >
+                    Faire mes pronos
+                  </button>
+
+                  {typeof window !== "undefined" &&
+                    "Notification" in window &&
+                    notificationPermission === "default" && (
+                      <button
+                        onClick={activerNotificationsRappel}
+                        className="bg-white text-[#1E3047] px-4 py-3 rounded-lg font-bold"
+                      >
+                        Activer les rappels
+                      </button>
+                    )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* STATISTIQUES */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
