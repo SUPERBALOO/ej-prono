@@ -77,42 +77,32 @@ function getMainScoreValue(
 }
 
 export function getStoredAfterExtraTimeScore(match: {
+  home_score?: number | null;
+  away_score?: number | null;
   full_time_home_score?: number | null;
   full_time_away_score?: number | null;
+  extra_time_home_score?: number | null;
+  extra_time_away_score?: number | null;
   penalty_home_score?: number | null;
   penalty_away_score?: number | null;
 }) {
   if (
-    !hasScorePair(
-      match.full_time_home_score,
-      match.full_time_away_score
-    )
-  ) {
-    return null;
-  }
-
-  if (
     hasScorePair(
-      match.penalty_home_score,
-      match.penalty_away_score
+      match.home_score,
+      match.away_score
     )
   ) {
     return {
-      home: subtractScores(
-        match.full_time_home_score,
-        match.penalty_home_score
-      ),
-      away: subtractScores(
-        match.full_time_away_score,
-        match.penalty_away_score
-      ),
+      home:
+        (match.home_score ?? 0) +
+        (match.extra_time_home_score ?? 0),
+      away:
+        (match.away_score ?? 0) +
+        (match.extra_time_away_score ?? 0),
     };
   }
 
-  return {
-    home: match.full_time_home_score,
-    away: match.full_time_away_score,
-  };
+  return null;
 }
 
 export function getStoredPenaltyScore(match: {
@@ -139,6 +129,8 @@ export function shouldShowAfterExtraTimeScore(match: {
   away_score?: number | null;
   full_time_home_score?: number | null;
   full_time_away_score?: number | null;
+  extra_time_home_score?: number | null;
+  extra_time_away_score?: number | null;
   penalty_home_score?: number | null;
   penalty_away_score?: number | null;
 }) {
