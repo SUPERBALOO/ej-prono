@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculatePoints } from "@/lib/calculatePoints";
 import { getMatchScoreUpdate } from "@/lib/matchScores";
@@ -8,13 +11,32 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { data: activeMatches, error } = await supabase
+    const apiMatchId =
+      req.nextUrl.searchParams.get("apiMatchId");
+
+    const matchId =
+      req.nextUrl.searchParams.get("matchId");
+
+    let query = supabase
       .from("matches")
       .select("*")
-      .not("api_match_id", "is", null)
-      .in("status", ["scheduled", "live"]);
+      .not("api_match_id", "is", null);
+
+    if (apiMatchId) {
+      query = query.eq("api_match_id", apiMatchId);
+    } else if (matchId) {
+      query = query.eq("id", matchId);
+    } else {
+      query = query.in("status", [
+        "scheduled",
+        "live",
+      ]);
+    }
+
+    const { data: activeMatches, error } =
+      await query;
 
     if (error) {
       throw error;
@@ -27,12 +49,15 @@ export async function GET() {
     const {
       data: recentFinishedMatches,
       error: recentFinishedError,
-    } = await supabase
-      .from("matches")
-      .select("*")
-      .not("api_match_id", "is", null)
-      .eq("status", "finished")
-      .gte("match_date", recentLimit);
+    } =
+      apiMatchId || matchId
+        ? { data: [], error: null }
+        : await supabase
+            .from("matches")
+            .select("*")
+            .not("api_match_id", "is", null)
+            .eq("status", "finished")
+            .gte("match_date", recentLimit);
 
     if (recentFinishedError) {
       throw recentFinishedError;
@@ -73,8 +98,17 @@ export async function GET() {
 
         const data = await response.json();
 
+        if (!response.ok) {
+          throw new Error(
+            data?.message ||
+              `Erreur Football-Data ${response.status}`
+          );
+        }
+
         if (!data?.id) {
-          continue;
+          throw new Error(
+            `Match API introuvable ${match.api_match_id}`
+          );
         }
 
         let status = "scheduled";

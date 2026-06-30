@@ -1,4 +1,7 @@
-import { NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculatePoints } from "@/lib/calculatePoints";
 
@@ -7,12 +10,26 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { data: matches, error } = await supabase
+    const apiMatchId =
+      req.nextUrl.searchParams.get("apiMatchId");
+
+    const matchId =
+      req.nextUrl.searchParams.get("matchId");
+
+    let query = supabase
       .from("matches")
       .select("id")
       .eq("status", "finished");
+
+    if (apiMatchId) {
+      query = query.eq("api_match_id", apiMatchId);
+    } else if (matchId) {
+      query = query.eq("id", matchId);
+    }
+
+    const { data: matches, error } = await query;
 
     if (error) {
       throw error;
