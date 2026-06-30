@@ -4,6 +4,7 @@ import {
   buildRankingsMap,
   getMatchOddsUpdate,
 } from "@/lib/odds";
+import { getMatchScoreUpdate } from "@/lib/matchScores";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -106,11 +107,7 @@ export async function POST(req: NextRequest) {
             ? "live"
             : "scheduled",
 
-        home_score:
-          m.score?.fullTime?.home ?? null,
-
-        away_score:
-          m.score?.fullTime?.away ?? null,
+        ...getMatchScoreUpdate(m.score),
       }));
 
     console.log(

@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  hasScorePair,
+  scorePairDiffers,
+} from "@/lib/matchScores";
+
 interface Props {
   matchs48h: any[];
   tendances: any;
@@ -23,6 +28,69 @@ export default function AujourdHuiTab({
   setModifiedPredictions,
   enregistrerPronostic,
 }: Props) {
+
+  function getExtraTimeScore(match: any) {
+    if (
+      hasScorePair(
+        match.extra_time_home_score,
+        match.extra_time_away_score
+      )
+    ) {
+      return {
+        home: match.extra_time_home_score,
+        away: match.extra_time_away_score,
+      };
+    }
+
+    if (
+      hasScorePair(
+        match.full_time_home_score,
+        match.full_time_away_score
+      ) &&
+      scorePairDiffers(
+        match.full_time_home_score,
+        match.full_time_away_score,
+        match.home_score,
+        match.away_score
+      )
+    ) {
+      return {
+        home: match.full_time_home_score,
+        away: match.full_time_away_score,
+      };
+    }
+
+    return null;
+  }
+
+  function renderScoreDetails(match: any) {
+    const extraTimeScore = getExtraTimeScore(match);
+
+    return (
+      <div className="mt-2 space-y-1 text-center text-xs md:text-sm text-gray-300">
+        {extraTimeScore && (
+          <div>
+            Apres prolongation :{" "}
+            <span className="font-semibold text-[#D8AA82]">
+              {extraTimeScore.home} - {extraTimeScore.away}
+            </span>
+          </div>
+        )}
+
+        {hasScorePair(
+          match.penalty_home_score,
+          match.penalty_away_score
+        ) && (
+          <div>
+            Tirs au but :{" "}
+            <span className="font-semibold text-[#D8AA82]">
+              {match.penalty_home_score} - {match.penalty_away_score}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const hasFinalPhaseMatch = matchs48h.some(
     (match) =>
@@ -187,6 +255,7 @@ export default function AujourdHuiTab({
 {(match.status === "live" ||
   match.status === "finished") && (
 
+  <>
   <div className="mt-5 flex items-center justify-center gap-6">
 
     <div className="text-center">
@@ -208,6 +277,9 @@ export default function AujourdHuiTab({
     </div>
 
   </div>
+
+  {renderScoreDetails(match)}
+  </>
 
 )}
             {/* PRONOSTIC */}

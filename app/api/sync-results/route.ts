@@ -1,34 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculatePoints } from "@/lib/calculatePoints";
+import { getMatchScoreUpdate } from "@/lib/matchScores";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-function getScoreValue(
-  score: any,
-  side: "home" | "away"
-) {
-  const regularTime =
-    score?.regularTime?.[side] ??
-    score?.regularTime?.[
-      side === "home" ? "homeTeam" : "awayTeam"
-    ];
-
-  if (regularTime !== null && regularTime !== undefined) {
-    return regularTime;
-  }
-
-  return (
-    score?.fullTime?.[side] ??
-    score?.fullTime?.[
-      side === "home" ? "homeTeam" : "awayTeam"
-    ] ??
-    null
-  );
-}
 
 export async function GET() {
   try {
@@ -116,13 +94,11 @@ export async function GET() {
             status = "scheduled";
         }
 
+        const scoreUpdate =
+          getMatchScoreUpdate(data.score);
+
         const updateData = {
-          home_score:
-            getScoreValue(data.score, "home"),
-
-          away_score:
-            getScoreValue(data.score, "away"),
-
+          ...scoreUpdate,
           status,
 
           live_status:

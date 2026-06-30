@@ -8,6 +8,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import AujourdHuiTab from "./components/AujourdHuiTab";
+import {
+  hasScorePair,
+  scorePairDiffers,
+} from "@/lib/matchScores";
 
 export default function ConcoursDetailPage() {
 
@@ -699,6 +703,69 @@ async function chargerFormeEquipe(
     .limit(5);
 
   return data || [];
+}
+
+function getExtraTimeScore(match: any) {
+  if (
+    hasScorePair(
+      match.extra_time_home_score,
+      match.extra_time_away_score
+    )
+  ) {
+    return {
+      home: match.extra_time_home_score,
+      away: match.extra_time_away_score,
+    };
+  }
+
+  if (
+    hasScorePair(
+      match.full_time_home_score,
+      match.full_time_away_score
+    ) &&
+    scorePairDiffers(
+      match.full_time_home_score,
+      match.full_time_away_score,
+      match.home_score,
+      match.away_score
+    )
+  ) {
+    return {
+      home: match.full_time_home_score,
+      away: match.full_time_away_score,
+    };
+  }
+
+  return null;
+}
+
+function renderScoreDetails(match: any) {
+  const extraTimeScore = getExtraTimeScore(match);
+
+  return (
+    <div className="mt-2 space-y-1 text-center text-xs text-gray-300">
+      {extraTimeScore && (
+        <div>
+          Apres prolongation :{" "}
+          <span className="font-semibold text-[#D8AA82]">
+            {extraTimeScore.home} - {extraTimeScore.away}
+          </span>
+        </div>
+      )}
+
+      {hasScorePair(
+        match.penalty_home_score,
+        match.penalty_away_score
+      ) && (
+        <div>
+          Tirs au but :{" "}
+          <span className="font-semibold text-[#D8AA82]">
+            {match.penalty_home_score} - {match.penalty_away_score}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
   async function copierCode() {
@@ -1506,6 +1573,8 @@ className="
         {match.home_score ?? 0} - {match.away_score ?? 0}
       </div>
 
+      {renderScoreDetails(match)}
+
       {match.live_status && (
         <div className="text-xs text-gray-300 mt-1">
           {match.live_status}
@@ -1523,6 +1592,8 @@ className="
       <div className="text-4xl font-bold text-[#D8AA82]">
         {match.home_score} - {match.away_score}
       </div>
+
+      {renderScoreDetails(match)}
     </>
   )}
 
