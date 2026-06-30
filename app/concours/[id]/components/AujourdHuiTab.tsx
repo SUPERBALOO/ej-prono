@@ -1,8 +1,9 @@
 "use client";
 
 import {
-  hasScorePair,
-  scorePairDiffers,
+  getStoredAfterExtraTimeScore,
+  getStoredPenaltyScore,
+  shouldShowAfterExtraTimeScore,
 } from "@/lib/matchScores";
 
 interface Props {
@@ -29,46 +30,17 @@ export default function AujourdHuiTab({
   enregistrerPronostic,
 }: Props) {
 
-  function getExtraTimeScore(match: any) {
-    if (
-      hasScorePair(
-        match.extra_time_home_score,
-        match.extra_time_away_score
-      )
-    ) {
-      return {
-        home: match.extra_time_home_score,
-        away: match.extra_time_away_score,
-      };
-    }
-
-    if (
-      hasScorePair(
-        match.full_time_home_score,
-        match.full_time_away_score
-      ) &&
-      scorePairDiffers(
-        match.full_time_home_score,
-        match.full_time_away_score,
-        match.home_score,
-        match.away_score
-      )
-    ) {
-      return {
-        home: match.full_time_home_score,
-        away: match.full_time_away_score,
-      };
-    }
-
-    return null;
-  }
-
   function renderScoreDetails(match: any) {
-    const extraTimeScore = getExtraTimeScore(match);
+    const extraTimeScore =
+      getStoredAfterExtraTimeScore(match);
+
+    const penaltyScore =
+      getStoredPenaltyScore(match);
 
     return (
       <div className="mt-2 space-y-1 text-center text-xs md:text-sm text-gray-300">
-        {extraTimeScore && (
+        {extraTimeScore &&
+          shouldShowAfterExtraTimeScore(match) && (
           <div>
             Apres prolongation :{" "}
             <span className="font-semibold text-[#D8AA82]">
@@ -77,14 +49,11 @@ export default function AujourdHuiTab({
           </div>
         )}
 
-        {hasScorePair(
-          match.penalty_home_score,
-          match.penalty_away_score
-        ) && (
+        {penaltyScore && (
           <div>
             Tirs au but :{" "}
             <span className="font-semibold text-[#D8AA82]">
-              {match.penalty_home_score} - {match.penalty_away_score}
+              {penaltyScore.home} - {penaltyScore.away}
             </span>
           </div>
         )}

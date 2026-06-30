@@ -26,13 +26,133 @@ function getScoreValue(
   );
 }
 
+function subtractScores(
+  value: number | null | undefined,
+  ...valuesToSubtract: Array<number | null | undefined>
+) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return valuesToSubtract.reduce<number>(
+    (currentValue, valueToSubtract) =>
+      currentValue - (valueToSubtract ?? 0),
+    value
+  );
+}
+
 function getMainScoreValue(
   score: MatchScore | null | undefined,
   side: ScoreSide
 ) {
-  return (
-    getScoreValue(score, "regularTime", side) ??
-    getScoreValue(score, "fullTime", side)
+  const regularTime =
+    getScoreValue(score, "regularTime", side);
+
+  if (regularTime !== null) {
+    return regularTime;
+  }
+
+  const fullTime =
+    getScoreValue(score, "fullTime", side);
+
+  const extraTime =
+    getScoreValue(score, "extraTime", side);
+
+  const penalties =
+    getScoreValue(score, "penalties", side);
+
+  if (score?.duration === "PENALTY_SHOOTOUT") {
+    return subtractScores(
+      fullTime,
+      penalties,
+      extraTime
+    );
+  }
+
+  if (score?.duration === "EXTRA_TIME") {
+    return subtractScores(fullTime, extraTime);
+  }
+
+  return fullTime;
+}
+
+export function getStoredAfterExtraTimeScore(match: {
+  full_time_home_score?: number | null;
+  full_time_away_score?: number | null;
+  penalty_home_score?: number | null;
+  penalty_away_score?: number | null;
+}) {
+  if (
+    !hasScorePair(
+      match.full_time_home_score,
+      match.full_time_away_score
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    hasScorePair(
+      match.penalty_home_score,
+      match.penalty_away_score
+    )
+  ) {
+    return {
+      home: subtractScores(
+        match.full_time_home_score,
+        match.penalty_home_score
+      ),
+      away: subtractScores(
+        match.full_time_away_score,
+        match.penalty_away_score
+      ),
+    };
+  }
+
+  return {
+    home: match.full_time_home_score,
+    away: match.full_time_away_score,
+  };
+}
+
+export function getStoredPenaltyScore(match: {
+  penalty_home_score?: number | null;
+  penalty_away_score?: number | null;
+}) {
+  if (
+    !hasScorePair(
+      match.penalty_home_score,
+      match.penalty_away_score
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    home: match.penalty_home_score,
+    away: match.penalty_away_score,
+  };
+}
+
+export function shouldShowAfterExtraTimeScore(match: {
+  home_score?: number | null;
+  away_score?: number | null;
+  full_time_home_score?: number | null;
+  full_time_away_score?: number | null;
+  penalty_home_score?: number | null;
+  penalty_away_score?: number | null;
+}) {
+  const afterExtraTimeScore =
+    getStoredAfterExtraTimeScore(match);
+
+  return !!(
+    afterExtraTimeScore &&
+    scorePairDiffers(
+      afterExtraTimeScore.home,
+      afterExtraTimeScore.away,
+      match.home_score,
+      match.away_score
+    )
   );
 }
 
