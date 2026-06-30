@@ -4,6 +4,7 @@ import {
   getStoredAfterExtraTimeScore,
   getStoredPenaltyScore,
   shouldShowAfterExtraTimeScore,
+  shouldShowPenaltyScore,
 } from "@/lib/matchScores";
 
 interface Props {
@@ -49,7 +50,8 @@ export default function AujourdHuiTab({
           </div>
         )}
 
-        {penaltyScore && (
+        {penaltyScore &&
+          shouldShowPenaltyScore(match) && (
           <div>
             Tirs au but :{" "}
             <span className="font-semibold text-[#D8AA82]">

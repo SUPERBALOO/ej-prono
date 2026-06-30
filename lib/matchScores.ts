@@ -106,9 +106,45 @@ export function getStoredAfterExtraTimeScore(match: {
 }
 
 export function getStoredPenaltyScore(match: {
+  home_score?: number | null;
+  away_score?: number | null;
+  full_time_home_score?: number | null;
+  full_time_away_score?: number | null;
+  extra_time_home_score?: number | null;
+  extra_time_away_score?: number | null;
   penalty_home_score?: number | null;
   penalty_away_score?: number | null;
 }) {
+  const afterExtraTimeScore =
+    getStoredAfterExtraTimeScore(match);
+
+  if (
+    afterExtraTimeScore &&
+    hasScorePair(
+      match.full_time_home_score,
+      match.full_time_away_score
+    )
+  ) {
+    const derivedHome =
+      (match.full_time_home_score ?? 0) -
+      (afterExtraTimeScore.home ?? 0);
+
+    const derivedAway =
+      (match.full_time_away_score ?? 0) -
+      (afterExtraTimeScore.away ?? 0);
+
+    if (
+      derivedHome >= 0 &&
+      derivedAway >= 0 &&
+      (derivedHome !== 0 || derivedAway !== 0)
+    ) {
+      return {
+        home: derivedHome,
+        away: derivedAway,
+      };
+    }
+  }
+
   if (
     !hasScorePair(
       match.penalty_home_score,
@@ -124,6 +160,24 @@ export function getStoredPenaltyScore(match: {
   };
 }
 
+export function shouldShowPenaltyScore(match: {
+  home_score?: number | null;
+  away_score?: number | null;
+  full_time_home_score?: number | null;
+  full_time_away_score?: number | null;
+  extra_time_home_score?: number | null;
+  extra_time_away_score?: number | null;
+  penalty_home_score?: number | null;
+  penalty_away_score?: number | null;
+}) {
+  const penaltyScore = getStoredPenaltyScore(match);
+
+  return !!(
+    penaltyScore &&
+    penaltyScore.home !== penaltyScore.away
+  );
+}
+
 export function shouldShowAfterExtraTimeScore(match: {
   home_score?: number | null;
   away_score?: number | null;
@@ -136,6 +190,13 @@ export function shouldShowAfterExtraTimeScore(match: {
 }) {
   const afterExtraTimeScore =
     getStoredAfterExtraTimeScore(match);
+
+  if (
+    afterExtraTimeScore &&
+    shouldShowPenaltyScore(match)
+  ) {
+    return true;
+  }
 
   return !!(
     afterExtraTimeScore &&

@@ -12,6 +12,7 @@ import {
   getStoredAfterExtraTimeScore,
   getStoredPenaltyScore,
   shouldShowAfterExtraTimeScore,
+  shouldShowPenaltyScore,
 } from "@/lib/matchScores";
 
 export default function ConcoursDetailPage() {
@@ -725,7 +726,8 @@ function renderScoreDetails(match: any) {
         </div>
       )}
 
-      {penaltyScore && (
+      {penaltyScore &&
+        shouldShowPenaltyScore(match) && (
         <div>
           Tirs au but :{" "}
           <span className="font-semibold text-[#D8AA82]">
