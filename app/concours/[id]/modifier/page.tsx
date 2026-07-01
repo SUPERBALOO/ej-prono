@@ -14,6 +14,7 @@ export default function ModifierConcoursPage() {
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
   const [maxJoueurs, setMaxJoueurs] = useState(100);
+  const [imageUrl, setImageUrl] = useState("");
   const [competitionId, setCompetitionId] = useState("");
   const [competitions, setCompetitions] = useState<any[]>([]);
   const [chargement, setChargement] = useState(true);
@@ -47,6 +48,7 @@ export default function ModifierConcoursPage() {
     setDateDebut(data.date_debut?.substring(0, 10));
     setDateFin(data.date_fin?.substring(0, 10));
     setMaxJoueurs(data.max_joueurs || 100);
+    setImageUrl(data.image_url || "");
     setCompetitionId(data.competition_id || "");
 
     setChargement(false);
@@ -61,6 +63,7 @@ export default function ModifierConcoursPage() {
         date_debut: dateDebut,
         date_fin: dateFin,
         max_joueurs: maxJoueurs,
+        image_url: imageUrl || null,
         competition_id: competitionId,
       })
       .eq("id", params.id);
@@ -312,6 +315,37 @@ export default function ModifierConcoursPage() {
                   border-[#4A5D75]
                 "
               />
+            </div>
+
+            {/* IMAGE */}
+            <div>
+              <label className="block font-semibold text-[#D8AA82] mb-2">
+                URL image du concours
+              </label>
+
+              <input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://..."
+                className="
+                  w-full
+                  p-3 md:p-4
+                  rounded-xl
+                  bg-[#1E3047]
+                  text-white
+                  border
+                  border-[#4A5D75]
+                "
+              />
+
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt={nom || "Concours"}
+                  className="mt-3 h-36 w-full rounded-xl object-cover"
+                />
+              )}
             </div>
 
             {/* BOUTONS */}

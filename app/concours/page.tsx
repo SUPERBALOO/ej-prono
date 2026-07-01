@@ -252,11 +252,20 @@ export default function ConcoursPage() {
               {concours.map((concours) => (
                 <div
                   key={concours.id}
-                  className="bg-[#33465D] rounded-3xl p-5 shadow-xl hover:scale-[1.02] transition"
+                  className="bg-[#33465D] rounded-3xl overflow-hidden shadow-xl hover:scale-[1.02] transition"
                 >
-                  <h3 className="text-xl md:text-2xl font-bold mb-3">
-                    {concours.nom}
-                  </h3>
+                  {concours.image_url && (
+                    <img
+                      src={concours.image_url}
+                      alt={concours.nom}
+                      className="h-36 w-full object-cover"
+                    />
+                  )}
+
+                  <div className="p-5">
+                    <h3 className="text-xl md:text-2xl font-bold mb-3">
+                      {concours.nom}
+                    </h3>
 
                   {isAdmin && (
                     <div className="inline-block bg-[#D8AA82]/20 text-[#D8AA82] px-3 py-1 rounded-full text-sm font-semibold mb-3">
@@ -293,6 +302,7 @@ export default function ConcoursPage() {
                   >
                     Ouvrir
                   </Link>
+                  </div>
                 </div>
               ))}
             </div>

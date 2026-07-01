@@ -11,6 +11,7 @@ export default function ProfilPage() {
   const router = useRouter();
 
   const [pseudo, setPseudo] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [createdAt, setCreatedAt] = useState("");
@@ -48,6 +49,7 @@ export default function ProfilPage() {
 
     if (data) {
       setPseudo(data.pseudo || "");
+      setAvatarUrl(data.avatar_url || "");
       setEmail(data.email || "");
       setIsAdmin(data.is_admin);
       setCreatedAt(data.created_at);
@@ -65,12 +67,34 @@ export default function ProfilPage() {
       .from("profiles")
       .update({
         pseudo,
+        avatar_url: avatarUrl || null,
       })
       .eq("id", user.id);
 
     if (error) {
-      setMessage(error.message);
-      return;
+      const missingAvatarColumn =
+        error.code === "PGRST204" ||
+        error.code === "42703" ||
+        error.message
+          .toLowerCase()
+          .includes("avatar_url");
+
+      if (!missingAvatarColumn) {
+        setMessage(error.message);
+        return;
+      }
+
+      const { error: fallbackError } = await supabase
+        .from("profiles")
+        .update({
+          pseudo,
+        })
+        .eq("id", user.id);
+
+      if (fallbackError) {
+        setMessage(fallbackError.message);
+        return;
+      }
     }
 
     setMessage(
@@ -152,6 +176,42 @@ export default function ProfilPage() {
                     text-black
                   "
                 />
+              </div>
+
+              <div className="mb-6">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Avatar / photo
+                </label>
+
+                <div className="flex flex-col md:flex-row gap-4 md:items-center">
+                  <div className="w-20 h-20 rounded-full bg-[#223246] overflow-hidden flex items-center justify-center text-2xl font-bold text-[#c9a27e]">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={pseudo || "Avatar"}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      (pseudo || "?").slice(0, 1).toUpperCase()
+                    )}
+                  </div>
+
+                  <input
+                    type="url"
+                    value={avatarUrl}
+                    onChange={(e) =>
+                      setAvatarUrl(e.target.value)
+                    }
+                    className="
+                      w-full
+                      p-3
+                      rounded-lg
+                      bg-white
+                      text-black
+                    "
+                    placeholder="URL de l'image"
+                  />
+                </div>
               </div>
 
               <div className="mb-6">

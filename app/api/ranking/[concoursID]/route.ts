@@ -41,15 +41,42 @@ export async function GET(
       matches?.map((match) => match.id) || [];
 
     // Profils
-    const { data: profils } = await supabase
+    let profils: any[] | null = null;
+    let profilsError: any = null;
+
+    const profilsResult = await supabase
       .from("profiles")
-      .select("id,pseudo")
+      .select("id,pseudo,avatar_url")
       .in("id", userIds);
 
+    profils = profilsResult.data;
+    profilsError = profilsResult.error;
+
+    if (
+      profilsError &&
+      profilsError.message
+        .toLowerCase()
+        .includes("avatar_url")
+    ) {
+      const fallback = await supabase
+        .from("profiles")
+        .select("id,pseudo")
+        .in("id", userIds);
+
+      profils = fallback.data;
+      profilsError = fallback.error;
+    }
+
+    if (profilsError) {
+      throw profilsError;
+    }
+
     const pseudoMap: Record<string, string> = {};
+    const avatarMap: Record<string, string | null> = {};
 
     (profils || []).forEach((p) => {
       pseudoMap[p.id] = p.pseudo;
+      avatarMap[p.id] = p.avatar_url || null;
     });
 
     const classement = [];
@@ -82,8 +109,10 @@ export async function GET(
       ).length;
 
       classement.push({
+        user_id: userId,
         pseudo:
           pseudoMap[userId] || "Joueur",
+        avatar_url: avatarMap[userId] || null,
         points: totalPoints,
         bons_pronos: bonsPronos,
         scores_exacts: scoresExacts,

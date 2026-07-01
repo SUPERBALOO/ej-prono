@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -96,9 +97,11 @@ const menuItems = [
         </nav>
 
         <div className="p-4 border-t border-[#42536A]">
+          <InstallAppButton />
+
           <button
             onClick={handleLogout}
-            className="w-full bg-[#D8AA82] text-white py-3 rounded-lg font-semibold hover:opacity-90"
+            className="mt-3 w-full bg-[#D8AA82] text-white py-3 rounded-lg font-semibold hover:opacity-90"
           >
             Déconnexion
           </button>

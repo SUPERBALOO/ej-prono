@@ -887,6 +887,29 @@ function renderScoreDetails(match: any) {
   );
 }
 
+function renderPlayerAvatar(joueur: any) {
+  return (
+    <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#D8AA82] flex items-center justify-center text-sm font-bold text-[#1E3047]">
+      {joueur.avatar_url ? (
+        <img
+          src={joueur.avatar_url}
+          alt={joueur.pseudo || "Joueur"}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        (joueur.pseudo || "?").slice(0, 1).toUpperCase()
+      )}
+    </div>
+  );
+}
+
+function renderProgressIcon(index: number) {
+  if (index === 0) return "🏆";
+  if (index === 1) return "🥈";
+  if (index === 2) return "🥉";
+  return "↗";
+}
+
   async function copierCode() {
     if (!concours?.code_acces) return;
 
@@ -1021,7 +1044,15 @@ const hasFinalPhaseMatch = matches.some(
         <div className="max-w-6xl w-full mx-auto">
 
           {/* HEADER */}
-          <div className="bg-[#33465D] rounded-3xl p-8 mb-8 shadow-lg">
+          <div className="bg-[#33465D] rounded-3xl p-8 mb-8 shadow-lg overflow-hidden">
+
+            {concours.image_url && (
+              <img
+                src={concours.image_url}
+                alt={concours.nom}
+                className="-mx-8 -mt-8 mb-8 h-48 w-[calc(100%+4rem)] object-cover"
+              />
+            )}
 
             <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
               <div>
@@ -1362,13 +1393,14 @@ className="
         >
 
           <td className="p-3">
+            <div className="flex items-center gap-3">
+              {renderPlayerAvatar(joueur)}
 
-            {index === 0 && "🥇 "}
-            {index === 1 && "🥈 "}
-            {index === 2 && "🥉 "}
-
-            {joueur.pseudo}
-
+              <div className="flex items-center gap-2 font-semibold">
+                <span>{renderProgressIcon(index)}</span>
+                <span>{joueur.pseudo}</span>
+              </div>
+            </div>
           </td>
 
           <td className="text-center p-3">

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "../../lib/supabase/client";
+import AdminPushPanel from "@/components/AdminPushPanel";
+import InstallAppButton from "@/components/InstallAppButton";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -102,6 +104,10 @@ export default function DashboardPage() {
             👤 Mon Profil
           </Link>
         </nav>
+
+        <div className="p-4">
+          <InstallAppButton />
+        </div>
       </aside>
 
       {/* CONTENU */}
@@ -142,6 +148,8 @@ export default function DashboardPage() {
               >
                 ➕ Créer un concours
               </Link>
+
+              <AdminPushPanel />
             </div>
           )}
 

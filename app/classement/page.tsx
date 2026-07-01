@@ -14,7 +14,9 @@ type ConcoursSummary = {
 };
 
 type RankingRow = {
+  user_id?: string;
   pseudo: string;
+  avatar_url?: string | null;
   points: number;
   bons_pronos: number;
   scores_exacts: number;
@@ -138,6 +140,29 @@ export default function ClassementPage() {
     }
   }
 
+  function renderAvatar(joueur: RankingRow) {
+    return (
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#D8AA82] flex items-center justify-center text-sm font-bold text-[#1E3047]">
+        {joueur.avatar_url ? (
+          <img
+            src={joueur.avatar_url}
+            alt={joueur.pseudo}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          joueur.pseudo.slice(0, 1).toUpperCase()
+        )}
+      </div>
+    );
+  }
+
+  function renderRankIcon(index: number) {
+    if (index === 0) return "🏆";
+    if (index === 1) return "🥈";
+    if (index === 2) return "🥉";
+    return "↗";
+  }
+
   return (
     <div className="min-h-screen bg-[#1E3047] text-white flex">
       <Sidebar />
@@ -237,7 +262,20 @@ export default function ClassementPage() {
                                 </td>
 
                                 <td className="p-3 font-semibold">
-                                  {joueur.pseudo}
+                                  <div className="flex items-center gap-3">
+                                    {renderAvatar(joueur)}
+
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span>
+                                          {joueur.pseudo}
+                                        </span>
+                                        <span className="text-xs text-[#D8AA82]">
+                                          {renderRankIcon(index)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </td>
 
                                 <td className="text-center p-3 font-bold">
