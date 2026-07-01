@@ -133,19 +133,31 @@ const { data: profil } = await supabase
 
 const isAdminUser = profil?.is_admin || false;
 
-const { data: pronos } = await supabase
-  .from("predictions")
-  .select("*")
-  .eq("user_id", user?.id);
-
 const {
   data: { session },
 } = await supabase.auth.getSession();
 
 const pointsMap: any = {};
+let userPronos: any[] = [];
 
 if (session?.access_token) {
   try {
+    const predictionsResponse = await fetch(
+      `/api/predictions?concoursId=${concoursId}`,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    const predictionsResult =
+      await predictionsResponse.json();
+
+    userPronos =
+      predictionsResult.predictions || [];
+
     const pointsResponse = await fetch(
       `/api/points/me?concoursId=${concoursId}`,
       {
@@ -183,7 +195,7 @@ setUserPointsByMatch(pointsMap);
     (matchsData || []).map((match: any) => match.id)
   );
 
-  const concoursPronos = (pronos || []).filter(
+  const concoursPronos = userPronos.filter(
     (p: any) => concoursMatchIds.has(p.match_id)
   );
 
