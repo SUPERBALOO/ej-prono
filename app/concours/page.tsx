@@ -32,6 +32,37 @@ export default function ConcoursPage() {
     setIsAdmin(profil?.is_admin || false);
   }
 
+  async function ajouterNombreParticipants(
+    concoursList: any[]
+  ) {
+    const concoursIds = concoursList
+      .map((item: any) => item?.id)
+      .filter(Boolean);
+
+    if (!concoursIds.length) {
+      return concoursList;
+    }
+
+    const { data } = await supabase
+      .from("participants_concours")
+      .select("concours_id")
+      .in("concours_id", concoursIds);
+
+    const counts = (data || []).reduce(
+      (acc: Record<string, number>, participant: any) => {
+        acc[participant.concours_id] =
+          (acc[participant.concours_id] || 0) + 1;
+        return acc;
+      },
+      {}
+    );
+
+    return concoursList.map((item: any) => ({
+      ...item,
+      participants_count: counts[item.id] || 0,
+    }));
+  }
+
   async function chargerConcours() {
     const {
       data: { user },
@@ -52,7 +83,9 @@ export default function ConcoursPage() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      setConcours(data || []);
+      setConcours(
+        await ajouterNombreParticipants(data || [])
+      );
       return;
     }
 
@@ -71,14 +104,18 @@ export default function ConcoursPage() {
     // Sécurité anti-doublons
     const mesConcours = Array.from(
       new Map(
-        (data || []).map((item: any) => [
-          item.concours.id,
-          item.concours,
-        ])
+        (data || [])
+          .filter((item: any) => item.concours?.id)
+          .map((item: any) => [
+            item.concours.id,
+            item.concours,
+          ])
       ).values()
     );
 
-    setConcours(mesConcours);
+    setConcours(
+      await ajouterNombreParticipants(mesConcours)
+    );
   }
 
   async function rejoindreConcours() {
@@ -235,7 +272,10 @@ export default function ConcoursPage() {
 
                   <div className="flex justify-between items-center text-sm text-gray-400 mb-5">
                     <span>
-                      👥 {concours.max_joueurs || "Illimité"}
+                      👥 {concours.participants_count || 0}
+                      {concours.max_joueurs
+                        ? ` / ${concours.max_joueurs}`
+                        : ""}
                     </span>
 
                     <span>
@@ -262,3 +302,4 @@ export default function ConcoursPage() {
     </div>
   );
 }
+

@@ -81,13 +81,30 @@ export default function ModifierConcoursPage() {
 
     if (!confirmation) return;
 
-    const { error } = await supabase
-      .from("concours")
-      .delete()
-      .eq("id", params.id);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (error) {
-      alert(error.message);
+    if (!session?.access_token) {
+      alert("Session invalide");
+      return;
+    }
+
+    const response = await fetch(
+      `/api/concours/${params.id}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization:
+            `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      alert(result.error || "Erreur suppression");
       return;
     }
 
