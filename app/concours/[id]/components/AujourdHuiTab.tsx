@@ -162,6 +162,11 @@ export default function AujourdHuiTab({
             key={match.id}
             className="bg-[#42546B] rounded-2xl p-3"
           >
+            {match.concours_nom && (
+              <div className="mb-3 inline-flex rounded-full bg-[#1E3047] px-3 py-1 text-sm font-semibold text-[#D8AA82]">
+                {match.concours_nom}
+              </div>
+            )}
 
             {/* HEADER */}
 
