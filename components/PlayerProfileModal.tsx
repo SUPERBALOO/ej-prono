@@ -24,6 +24,8 @@ type RecentPrediction = {
   home_score?: number | null;
   away_score?: number | null;
   status?: string | null;
+  points?: number | null;
+  exact_score?: boolean | null;
 };
 
 type PlayerProfileResponse = {
@@ -220,6 +222,22 @@ export default function PlayerProfileModal({
                           <p className="text-xs text-gray-400">
                             Cote {prediction.locked_odds}
                           </p>
+                        )}
+
+                        {prediction.points !== null &&
+                          prediction.points !== undefined && (
+                          <div className="mt-2 flex justify-end gap-2">
+                            <span className="rounded-lg bg-[#D8AA82] px-2 py-1 text-xs font-bold text-[#1E3047]">
+                              +{prediction.points} pt
+                              {prediction.points > 1 ? "s" : ""}
+                            </span>
+
+                            {prediction.exact_score && (
+                              <span className="rounded-lg bg-green-600 px-2 py-1 text-xs font-bold text-white">
+                                Score exact
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>

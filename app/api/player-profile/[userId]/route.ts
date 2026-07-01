@@ -139,6 +139,17 @@ export async function GET(
         throw error;
       }
 
+      const { data: pointsRows, error: pointsError } =
+        await supabase
+          .from("points")
+          .select("match_id,points,exact_score")
+          .eq("user_id", userId)
+          .in("match_id", matchIds);
+
+      if (pointsError) {
+        throw pointsError;
+      }
+
       const matchesById = new Map(
         visibleMatches.map((match: any) => [
           match.id,
@@ -146,9 +157,19 @@ export async function GET(
         ])
       );
 
+      const pointsByMatchId = new Map(
+        (pointsRows || []).map((row: any) => [
+          row.match_id,
+          row,
+        ])
+      );
+
       recentPredictions = (predictions || [])
         .map((prediction: any) => {
           const match = matchesById.get(
+            prediction.match_id
+          );
+          const points = pointsByMatchId.get(
             prediction.match_id
           );
 
@@ -167,6 +188,8 @@ export async function GET(
             home_score: match?.home_score,
             away_score: match?.away_score,
             status: match?.status,
+            points: points?.points ?? null,
+            exact_score: points?.exact_score ?? false,
           };
         })
         .sort(
