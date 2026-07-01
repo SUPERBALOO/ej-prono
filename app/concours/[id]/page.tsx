@@ -142,23 +142,7 @@ const {
   data: { session },
 } = await supabase.auth.getSession();
 
-const savedMap: any = {};
-const predictionsMap: any = {};
 const pointsMap: any = {};
-
-(pronos || []).forEach((p: any) => {
-  savedMap[p.match_id] = true;
-
-  predictionsMap[p.match_id] = {
-    pred_home: p.pred_home,
-    pred_away: p.pred_away,
-    
-  };
-});
-
-setSavedPredictions(savedMap);
-setPredictions(predictionsMap);
-setUserPronosCount(pronos?.length || 0);
 
 if (session?.access_token) {
   try {
@@ -194,6 +178,30 @@ setUserPointsByMatch(pointsMap);
     .select("*")
     .eq("concours_id", concoursId)
     .order("match_date", { ascending: true });
+
+  const concoursMatchIds = new Set(
+    (matchsData || []).map((match: any) => match.id)
+  );
+
+  const concoursPronos = (pronos || []).filter(
+    (p: any) => concoursMatchIds.has(p.match_id)
+  );
+
+  const savedMap: any = {};
+  const predictionsMap: any = {};
+
+  concoursPronos.forEach((p: any) => {
+    savedMap[p.match_id] = true;
+
+    predictionsMap[p.match_id] = {
+      pred_home: p.pred_home,
+      pred_away: p.pred_away,
+    };
+  });
+
+  setSavedPredictions(savedMap);
+  setPredictions(predictionsMap);
+  setUserPronosCount(concoursPronos.length);
 
   const hasMissingOdds =
     (matchsData || []).some(
@@ -364,6 +372,10 @@ setTendances((prev: any) => ({
   ...prev,
   [matchId]: true,
   }));
+
+  if (!savedPredictions[matchId]) {
+    setUserPronosCount((count) => count + 1);
+  }
   //alert("Pronostic enregistré");
 
 
