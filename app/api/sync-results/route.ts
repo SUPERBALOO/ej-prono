@@ -11,6 +11,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const UPCOMING_WINDOW_HOURS = 3;
+const RECENT_WINDOW_HOURS = 6;
+const FULL_RECENT_DAYS = 7;
+
+function hoursFromNow(hours: number) {
+  return new Date(
+    Date.now() + hours * 60 * 60 * 1000
+  ).toISOString();
+}
+
+function getFootballDataStatus(status: string) {
+  switch (status) {
+    case "LIVE":
+    case "IN_PLAY":
+    case "PAUSED":
+      return "live";
+
+    case "FINISHED":
+      return "finished";
+
+    default:
+      return "scheduled";
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const apiMatchId =
@@ -18,6 +43,9 @@ export async function GET(req: NextRequest) {
 
     const matchId =
       req.nextUrl.searchParams.get("matchId");
+
+    const fullSync =
+      req.nextUrl.searchParams.get("full") === "1";
 
     let query = supabase
       .from("matches")
@@ -29,10 +57,20 @@ export async function GET(req: NextRequest) {
     } else if (matchId) {
       query = query.eq("id", matchId);
     } else {
-      query = query.in("status", [
-        "scheduled",
-        "live",
-      ]);
+      const windowStart = hoursFromNow(
+        -RECENT_WINDOW_HOURS
+      );
+      const windowEnd = hoursFromNow(
+        UPCOMING_WINDOW_HOURS
+      );
+
+      query = query.or(
+        [
+          "status.eq.live",
+          `and(status.eq.scheduled,match_date.gte.${windowStart},match_date.lte.${windowEnd})`,
+          `and(status.eq.finished,match_date.gte.${windowStart})`,
+        ].join(",")
+      );
     }
 
     const { data: activeMatches, error } =
@@ -43,14 +81,15 @@ export async function GET(req: NextRequest) {
     }
 
     const recentLimit = new Date(
-      Date.now() - 7 * 24 * 60 * 60 * 1000
+      Date.now() -
+        FULL_RECENT_DAYS * 24 * 60 * 60 * 1000
     ).toISOString();
 
     const {
       data: recentFinishedMatches,
       error: recentFinishedError,
     } =
-      apiMatchId || matchId
+      apiMatchId || matchId || !fullSync
         ? { data: [], error: null }
         : await supabase
             .from("matches")
@@ -72,22 +111,35 @@ export async function GET(req: NextRequest) {
       ).values()
     );
 
-    if (!matches?.length) {
+    if (!matches.length) {
       return NextResponse.json({
         success: true,
         updated: 0,
         processed: 0,
-        message: "Aucun match à synchroniser",
+        checked: 0,
+        candidates: 0,
+        mode: fullSync ? "full" : "live-window",
+        message: "Aucun match a synchroniser",
       });
     }
 
     let updated = 0;
     let processed = 0;
 
-    for (const match of matches) {
+    const apiIds = Array.from(
+      new Set(
+        matches.map((match: any) =>
+          String(match.api_match_id)
+        )
+      )
+    );
+
+    const apiResponses = new Map<string, any>();
+
+    for (const id of apiIds) {
       try {
         const response = await fetch(
-          `https://api.football-data.org/v4/matches/${match.api_match_id}`,
+          `https://api.football-data.org/v4/matches/${id}`,
           {
             headers: {
               "X-Auth-Token":
@@ -107,26 +159,32 @@ export async function GET(req: NextRequest) {
 
         if (!data?.id) {
           throw new Error(
-            `Match API introuvable ${match.api_match_id}`
+            `Match API introuvable ${id}`
           );
         }
 
-        let status = "scheduled";
+        apiResponses.set(id, data);
+      } catch (err) {
+        console.error(
+          `Erreur match API ${id}`,
+          err
+        );
+      }
+    }
 
-        switch (data.status) {
-          case "LIVE":
-          case "IN_PLAY":
-          case "PAUSED":
-            status = "live";
-            break;
+    for (const match of matches) {
+      try {
+        const data = apiResponses.get(
+          String(match.api_match_id)
+        );
 
-          case "FINISHED":
-            status = "finished";
-            break;
-
-          default:
-            status = "scheduled";
+        if (!data) {
+          continue;
         }
+
+        const status = getFootballDataStatus(
+          data.status
+        );
 
         const scoreUpdate =
           getMatchScoreUpdate(data.score);
@@ -134,12 +192,8 @@ export async function GET(req: NextRequest) {
         const updateData = {
           ...scoreUpdate,
           status,
-
-          live_status:
-            data.status ?? null,
-
-          live_minute:
-            data.minute ?? null,
+          live_status: data.status ?? null,
+          live_minute: data.minute ?? null,
         };
 
         const scoreChanged =
@@ -162,7 +216,6 @@ export async function GET(req: NextRequest) {
 
         updated++;
 
-        // Match qui vient juste de se terminer
         if (
           status === "finished" &&
           (match.status !== "finished" ||
@@ -174,10 +227,9 @@ export async function GET(req: NextRequest) {
           processed += recalculated;
 
           console.log(
-            `Match ${match.id} terminé - ${recalculated} pronostics recalculés`
+            `Match ${match.id} termine - ${recalculated} pronostics recalcules`
           );
         }
-
       } catch (err) {
         console.error(
           `Erreur match ${match.api_match_id}`,
@@ -187,15 +239,17 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(
-      `${updated} matchs synchronisés`
+      `${updated} matchs synchronises`
     );
 
     return NextResponse.json({
       success: true,
       updated,
       processed,
+      checked: apiResponses.size,
+      candidates: matches.length,
+      mode: fullSync ? "full" : "live-window",
     });
-
   } catch (error: any) {
     console.error(error);
 
