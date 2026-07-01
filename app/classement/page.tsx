@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import LoadingAnimation from "@/components/LoadingAnimation";
 import { supabase } from "@/lib/supabase/client";
 
 type ConcoursSummary = {
@@ -157,9 +158,7 @@ export default function ClassementPage() {
           </div>
 
           {loading ? (
-            <div className="bg-[#33465D] rounded-3xl p-8 text-center">
-              Chargement des classements...
-            </div>
+            <LoadingAnimation message="Chargement des classements..." />
           ) : classements.length === 0 ? (
             <div className="bg-[#33465D] rounded-3xl p-8 text-center">
               Aucun concours disponible.

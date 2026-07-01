@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import LoadingAnimation from "@/components/LoadingAnimation";
 import { supabase } from "@/lib/supabase/client";
 import AujourdHuiTab from "@/app/concours/[id]/components/AujourdHuiTab";
 
@@ -459,9 +460,7 @@ export default function PronosticsPage() {
       <main className="flex-1 p-4 pt-20 md:p-10 md:ml-64">
         <div className="max-w-7xl mx-auto">
           {loading ? (
-            <div className="bg-[#33465D] rounded-3xl p-8 text-center">
-              Chargement des pronostics...
-            </div>
+            <LoadingAnimation message="Chargement des pronostics..." />
           ) : (
             <div className="bg-[#33465D] rounded-3xl p-4 md:p-8">
               <AujourdHuiTab
