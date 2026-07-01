@@ -14,6 +14,7 @@ interface Props {
   predictions: any;
   savedPredictions: any;
   modifiedPredictions: any;
+  userPointsByMatch: any;
   setPredictions: any;
   setModifiedPredictions: any;
   enregistrerPronostic: (matchId: string) => void;
@@ -26,6 +27,7 @@ export default function AujourdHuiTab({
   predictions,
   savedPredictions,
   modifiedPredictions,
+  userPointsByMatch,
   setPredictions,
   setModifiedPredictions,
   enregistrerPronostic,
@@ -58,6 +60,32 @@ export default function AujourdHuiTab({
               {penaltyScore.home} - {penaltyScore.away}
             </span>
           </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderUserPoints(match: any) {
+    const result =
+      userPointsByMatch?.[match.id];
+
+    if (
+      match.status !== "finished" ||
+      !result
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#1E3047] px-3 py-2 text-sm font-bold text-[#D8AA82]">
+        <span>Points remportes</span>
+        <span className="text-white">
+          +{result.points}
+        </span>
+        {result.exact_score && (
+          <span className="rounded bg-green-600 px-2 py-1 text-xs text-white">
+            Score exact
+          </span>
         )}
       </div>
     );
@@ -324,6 +352,8 @@ export default function AujourdHuiTab({
                 )}
 
               </div>
+
+              {renderUserPoints(match)}
 
             </div>
 

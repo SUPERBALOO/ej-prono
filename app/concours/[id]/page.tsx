@@ -35,6 +35,7 @@ export default function ConcoursDetailPage() {
   const [predictions, setPredictions] = useState<any>({});
   const [savedPredictions, setSavedPredictions] = useState<any>({});
   const [modifiedPredictions, setModifiedPredictions] = useState<any>({});
+  const [userPointsByMatch, setUserPointsByMatch] = useState<any>({});
   const [userPronosCount, setUserPronosCount] = useState(0);
   const [totalMatchesCount, setTotalMatchesCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -137,8 +138,14 @@ const { data: pronos } = await supabase
   .select("*")
   .eq("user_id", user?.id);
 
+const { data: pointsData } = await supabase
+  .from("points")
+  .select("match_id,points,exact_score")
+  .eq("user_id", user.id);
+
 const savedMap: any = {};
 const predictionsMap: any = {};
+const pointsMap: any = {};
 
 (pronos || []).forEach((p: any) => {
   savedMap[p.match_id] = true;
@@ -153,6 +160,15 @@ const predictionsMap: any = {};
 setSavedPredictions(savedMap);
 setPredictions(predictionsMap);
 setUserPronosCount(pronos?.length || 0);
+
+(pointsData || []).forEach((row: any) => {
+  pointsMap[row.match_id] = {
+    points: row.points,
+    exact_score: row.exact_score,
+  };
+});
+
+setUserPointsByMatch(pointsMap);
 
   // Chargement des matchs
   let { data: matchsData } = await supabase
@@ -1147,6 +1163,7 @@ className="
     predictions={predictions}
     savedPredictions={savedPredictions}
     modifiedPredictions={modifiedPredictions}
+    userPointsByMatch={userPointsByMatch}
     setPredictions={setPredictions}
     setModifiedPredictions={setModifiedPredictions}
     enregistrerPronostic={enregistrerPronostic}
@@ -1403,6 +1420,21 @@ className="
 
 
             </div>
+
+            {match.status === "finished" &&
+              userPointsByMatch?.[match.id] && (
+              <div className="inline-flex items-center gap-2 rounded-lg bg-[#1E3047] px-3 py-2 text-sm font-bold text-[#D8AA82]">
+                <span>Points remportes</span>
+                <span className="text-white">
+                  +{userPointsByMatch[match.id].points}
+                </span>
+                {userPointsByMatch[match.id].exact_score && (
+                  <span className="rounded bg-green-600 px-2 py-1 text-xs text-white">
+                    Score exact
+                  </span>
+                )}
+              </div>
+            )}
 
           </div>
 
