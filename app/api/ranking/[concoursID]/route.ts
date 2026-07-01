@@ -27,6 +27,19 @@ export async function GET(
     const userIds =
       participants?.map((p) => p.joueur_id) || [];
 
+    const { data: matches, error: matchesError } =
+      await supabase
+        .from("matches")
+        .select("id")
+        .eq("concours_id", concoursID);
+
+    if (matchesError) {
+      throw matchesError;
+    }
+
+    const matchIds =
+      matches?.map((match) => match.id) || [];
+
     // Profils
     const { data: profils } = await supabase
       .from("profiles")
@@ -44,13 +57,16 @@ export async function GET(
     for (const participant of participants || []) {
       const userId = participant.joueur_id;
 
-      const { data: pointsData } = await supabase
-        .from("points")
-        .select(`
-          points,
-          exact_score
-        `)
-        .eq("user_id", userId);
+      const { data: pointsData } = matchIds.length
+        ? await supabase
+            .from("points")
+            .select(`
+              points,
+              exact_score
+            `)
+            .eq("user_id", userId)
+            .in("match_id", matchIds)
+        : { data: [] };
 
       const totalPoints = (pointsData || []).reduce(
         (sum, row) => sum + (row.points || 0),

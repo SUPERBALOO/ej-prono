@@ -21,7 +21,7 @@ const menuItems = [
   { label: "Dashboard", href: "/dashboard", icon: "🏠" },
   { label: "Concours", href: "/concours", icon: "🏆" },
   { label: "Pronostics", href: "/pronostics", icon: "📝" },
-  { label: "Classement", href: "/redirect/classement", icon: "🥇" },
+  { label: "Classement", href: "/classement", icon: "🥇" },
   { label: "Mon profil", href: "/profil", icon: "👤" },
 ];
   return (
