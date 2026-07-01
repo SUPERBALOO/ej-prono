@@ -11,6 +11,9 @@ export default function ProfilPage() {
   const router = useRouter();
 
   const [pseudo, setPseudo] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [company, setCompany] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -49,6 +52,9 @@ export default function ProfilPage() {
 
     if (data) {
       setPseudo(data.pseudo || "");
+      setFirstName(data.first_name || "");
+      setLastName(data.last_name || "");
+      setCompany(data.company || "");
       setAvatarUrl(data.avatar_url || "");
       setEmail(data.email || "");
       setIsAdmin(data.is_admin);
@@ -67,19 +73,23 @@ export default function ProfilPage() {
       .from("profiles")
       .update({
         pseudo,
+        first_name: firstName || null,
+        last_name: lastName || null,
+        company: company || null,
         avatar_url: avatarUrl || null,
       })
       .eq("id", user.id);
 
     if (error) {
-      const missingAvatarColumn =
+      const missingProfileColumn =
         error.code === "PGRST204" ||
         error.code === "42703" ||
-        error.message
-          .toLowerCase()
-          .includes("avatar_url");
+        ["avatar_url", "first_name", "last_name", "company"].some(
+          (field) =>
+            error.message.toLowerCase().includes(field)
+        );
 
-      if (!missingAvatarColumn) {
+      if (!missingProfileColumn) {
         setMessage(error.message);
         return;
       }
@@ -168,6 +178,69 @@ export default function ProfilPage() {
                   onChange={(e) =>
                     setPseudo(e.target.value)
                   }
+                  className="
+                    w-full
+                    p-3
+                    rounded-lg
+                    bg-white
+                    text-black
+                  "
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block mb-2 text-[#c9a27e]">
+                    Prenom
+                  </label>
+
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) =>
+                      setFirstName(e.target.value)
+                    }
+                    className="
+                      w-full
+                      p-3
+                      rounded-lg
+                      bg-white
+                      text-black
+                    "
+                  />
+                </div>
+
+                <div>
+                  <label className="block mb-2 text-[#c9a27e]">
+                    Nom
+                  </label>
+
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) =>
+                      setLastName(e.target.value)
+                    }
+                    className="
+                      w-full
+                      p-3
+                      rounded-lg
+                      bg-white
+                      text-black
+                    "
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block mb-2 text-[#c9a27e]">
+                  Entreprise
+                </label>
+
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
                   className="
                     w-full
                     p-3

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import AujourdHuiTab from "./components/AujourdHuiTab";
+import PlayerProfileModal from "@/components/PlayerProfileModal";
 import {
   getStoredAfterExtraTimeScore,
   getStoredPenaltyScore,
@@ -24,6 +25,7 @@ export default function ConcoursDetailPage() {
   const [concours, setConcours] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [classement, setClassement] = useState<any[]>([]);
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [createurPseudo, setCreateurPseudo] = useState("");
 
@@ -1393,14 +1395,18 @@ className="
         >
 
           <td className="p-3">
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedPlayer(joueur)}
+              className="flex items-center gap-3 text-left hover:text-[#D8AA82]"
+            >
               {renderPlayerAvatar(joueur)}
 
               <div className="flex items-center gap-2 font-semibold">
                 <span>{renderProgressIcon(index)}</span>
                 <span>{joueur.pseudo}</span>
               </div>
-            </div>
+            </button>
           </td>
 
           <td className="text-center p-3">
@@ -1895,6 +1901,12 @@ className="
 
         </div>
       </main>
+
+      <PlayerProfileModal
+        player={selectedPlayer}
+        concoursId={concoursId}
+        onClose={() => setSelectedPlayer(null)}
+      />
     </div>
   );
 }

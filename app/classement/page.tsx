@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import LoadingAnimation from "@/components/LoadingAnimation";
+import PlayerProfileModal from "@/components/PlayerProfileModal";
 import { supabase } from "@/lib/supabase/client";
 
 type ConcoursSummary = {
@@ -17,6 +18,9 @@ type RankingRow = {
   user_id?: string;
   pseudo: string;
   avatar_url?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  company?: string | null;
   points: number;
   bons_pronos: number;
   scores_exacts: number;
@@ -35,6 +39,10 @@ export default function ClassementPage() {
   const [classements, setClassements] = useState<
     RankingBlock[]
   >([]);
+  const [selectedPlayer, setSelectedPlayer] =
+    useState<RankingRow | null>(null);
+  const [selectedConcoursId, setSelectedConcoursId] =
+    useState<string | null>(null);
 
   useEffect(() => {
     chargerClassements();
@@ -262,7 +270,16 @@ export default function ClassementPage() {
                                 </td>
 
                                 <td className="p-3 font-semibold">
-                                  <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedPlayer(joueur);
+                                      setSelectedConcoursId(
+                                        block.concours.id
+                                      );
+                                    }}
+                                    className="flex items-center gap-3 text-left hover:text-[#D8AA82]"
+                                  >
                                     {renderAvatar(joueur)}
 
                                     <div>
@@ -275,7 +292,7 @@ export default function ClassementPage() {
                                         </span>
                                       </div>
                                     </div>
-                                  </div>
+                                  </button>
                                 </td>
 
                                 <td className="text-center p-3 font-bold">
@@ -302,6 +319,15 @@ export default function ClassementPage() {
           )}
         </div>
       </main>
+
+      <PlayerProfileModal
+        player={selectedPlayer}
+        concoursId={selectedConcoursId}
+        onClose={() => {
+          setSelectedPlayer(null);
+          setSelectedConcoursId(null);
+        }}
+      />
     </div>
   );
 }

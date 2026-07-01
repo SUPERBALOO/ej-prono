@@ -46,26 +46,11 @@ export async function GET(
 
     const profilsResult = await supabase
       .from("profiles")
-      .select("id,pseudo,avatar_url")
+      .select("*")
       .in("id", userIds);
 
     profils = profilsResult.data;
     profilsError = profilsResult.error;
-
-    if (
-      profilsError &&
-      profilsError.message
-        .toLowerCase()
-        .includes("avatar_url")
-    ) {
-      const fallback = await supabase
-        .from("profiles")
-        .select("id,pseudo")
-        .in("id", userIds);
-
-      profils = fallback.data;
-      profilsError = fallback.error;
-    }
 
     if (profilsError) {
       throw profilsError;
@@ -73,10 +58,16 @@ export async function GET(
 
     const pseudoMap: Record<string, string> = {};
     const avatarMap: Record<string, string | null> = {};
+    const firstNameMap: Record<string, string | null> = {};
+    const lastNameMap: Record<string, string | null> = {};
+    const companyMap: Record<string, string | null> = {};
 
     (profils || []).forEach((p) => {
       pseudoMap[p.id] = p.pseudo;
       avatarMap[p.id] = p.avatar_url || null;
+      firstNameMap[p.id] = p.first_name || null;
+      lastNameMap[p.id] = p.last_name || null;
+      companyMap[p.id] = p.company || null;
     });
 
     const classement = [];
@@ -113,6 +104,9 @@ export async function GET(
         pseudo:
           pseudoMap[userId] || "Joueur",
         avatar_url: avatarMap[userId] || null,
+        first_name: firstNameMap[userId] || null,
+        last_name: lastNameMap[userId] || null,
+        company: companyMap[userId] || null,
         points: totalPoints,
         bons_pronos: bonsPronos,
         scores_exacts: scoresExacts,
