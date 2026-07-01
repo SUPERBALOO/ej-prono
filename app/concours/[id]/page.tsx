@@ -208,6 +208,9 @@ setUserPointsByMatch(pointsMap);
     predictionsMap[p.match_id] = {
       pred_home: p.pred_home,
       pred_away: p.pred_away,
+      locked_odds:
+        p.locked_odds ??
+        p.prediction_odds,
     };
   });
 
@@ -405,6 +408,30 @@ if (updatedMatches.length) {
   );
 }
 
+const savedResultPredictions =
+  result.savedPredictions || [];
+
+if (savedResultPredictions.length) {
+  setPredictions((prev: any) => {
+    const next = { ...prev };
+
+    savedResultPredictions.forEach(
+      (prediction: any) => {
+        next[prediction.match_id] = {
+          ...next[prediction.match_id],
+          pred_home: prediction.pred_home,
+          pred_away: prediction.pred_away,
+          locked_odds:
+            prediction.locked_odds ??
+            prediction.prediction_odds,
+        };
+      }
+    );
+
+    return next;
+  });
+}
+
 const tendanceMatchIds = updatedMatches.length
   ? updatedMatches.map((match: any) => match.id)
   : [matchId];
@@ -423,10 +450,20 @@ for (const tendanceMatchId of tendanceMatchIds) {
 
 
 
-  setSavedPredictions((prev: any) => ({
-  ...prev,
-  [matchId]: true,
-  }));
+  setSavedPredictions((prev: any) => {
+    const next = {
+      ...prev,
+      [matchId]: true,
+    };
+
+    savedResultPredictions.forEach(
+      (prediction: any) => {
+        next[prediction.match_id] = true;
+      }
+    );
+
+    return next;
+  });
 
   if (!savedPredictions[matchId]) {
     setUserPronosCount((count) => count + 1);
@@ -435,10 +472,20 @@ for (const tendanceMatchId of tendanceMatchIds) {
 
 
 
-setModifiedPredictions((prev: any) => ({
-  ...prev,
-  [matchId]: false,
-}));
+setModifiedPredictions((prev: any) => {
+  const next = {
+    ...prev,
+    [matchId]: false,
+  };
+
+  savedResultPredictions.forEach(
+    (prediction: any) => {
+      next[prediction.match_id] = false;
+    }
+  );
+
+  return next;
+});
 
 
 }
@@ -1498,8 +1545,16 @@ className="
 
 
 {savedPredictions[match.id] && !modifiedPredictions[match.id] ? (
-  <div className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-center">
-    ✓ Enregistré
+  <div className="flex flex-wrap items-center gap-2">
+    <div className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-center">
+      ✓ Enregistré
+    </div>
+
+    {predictions[match.id]?.locked_odds && (
+      <div className="bg-[#1E3047] px-3 py-2 rounded-lg text-sm font-bold text-[#D8AA82]">
+        Cote {predictions[match.id].locked_odds}
+      </div>
+    )}
   </div>
 ) : (
   <button

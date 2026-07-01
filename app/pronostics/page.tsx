@@ -276,6 +276,9 @@ export default function PronosticsPage() {
               predictionsMap[prediction.match_id] = {
                 pred_home: prediction.pred_home,
                 pred_away: prediction.pred_away,
+                locked_odds:
+                  prediction.locked_odds ??
+                  prediction.prediction_odds,
               };
             }
           );
@@ -380,15 +383,59 @@ export default function PronosticsPage() {
       );
     }
 
-    setSavedPredictions((prev: any) => ({
-      ...prev,
-      [matchId]: true,
-    }));
+    const savedResultPredictions =
+      result.savedPredictions || [];
 
-    setModifiedPredictions((prev: any) => ({
-      ...prev,
-      [matchId]: false,
-    }));
+    if (savedResultPredictions.length) {
+      setPredictions((prev: any) => {
+        const next = { ...prev };
+
+        savedResultPredictions.forEach(
+          (prediction: any) => {
+            next[prediction.match_id] = {
+              ...next[prediction.match_id],
+              pred_home: prediction.pred_home,
+              pred_away: prediction.pred_away,
+              locked_odds:
+                prediction.locked_odds ??
+                prediction.prediction_odds,
+            };
+          }
+        );
+
+        return next;
+      });
+    }
+
+    setSavedPredictions((prev: any) => {
+      const next = {
+        ...prev,
+        [matchId]: true,
+      };
+
+      savedResultPredictions.forEach(
+        (prediction: any) => {
+          next[prediction.match_id] = true;
+        }
+      );
+
+      return next;
+    });
+
+    setModifiedPredictions((prev: any) => {
+      const next = {
+        ...prev,
+        [matchId]: false,
+      };
+
+      savedResultPredictions.forEach(
+        (prediction: any) => {
+          next[prediction.match_id] = false;
+        }
+      );
+
+      return next;
+    });
 
     const tendanceMatchIds = updatedMatches.length
       ? updatedMatches.map((match: any) => match.id)

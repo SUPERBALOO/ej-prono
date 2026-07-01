@@ -357,6 +357,7 @@ const { data: updatedMatches } = await supabase
     return NextResponse.json({
       success: true,
       saved: predictionsToSave.length,
+      savedPredictions: predictionsToSave,
       updatedMatches: updatedMatches || [],
     });
   } catch (error: any) {

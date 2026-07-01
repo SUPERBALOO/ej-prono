@@ -342,8 +342,16 @@ export default function AujourdHuiTab({
 
                 {savedPredictions[match.id] &&
                 !modifiedPredictions[match.id] ? (
-                  <div className="bg-green-600 px-4 py-2 rounded-lg">
-                    ✓ Enregistré
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="bg-green-600 px-4 py-2 rounded-lg">
+                      ✓ Enregistré
+                    </div>
+
+                    {predictions[match.id]?.locked_odds && (
+                      <div className="bg-[#1E3047] px-3 py-2 rounded-lg text-sm font-bold text-[#D8AA82]">
+                        Cote {predictions[match.id].locked_odds}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <button
