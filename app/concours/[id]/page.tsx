@@ -785,8 +785,21 @@ function renderScoreDetails(match: any) {
     }, 2000);
   }
 
-async function importerMatchs() {
+async function importerMatchs(fromStage?: string) {
   try {
+    const importLabel =
+      fromStage === "LAST_16"
+        ? "les matchs depuis les huitiemes"
+        : "toute la competition";
+
+    if (
+      !confirm(
+        `Importer ${importLabel} dans ce concours ?`
+      )
+    ) {
+      return;
+    }
+
     const response = await fetch("/api/import-matches", {
       method: "POST",
       headers: {
@@ -794,6 +807,7 @@ async function importerMatchs() {
       },
       body: JSON.stringify({
         concoursId,
+        fromStage,
       }),
     });
 
@@ -1487,10 +1501,17 @@ className="
     </button>
 
     <button
-      onClick={importerMatchs}
+      onClick={() => importerMatchs()}
       className="w-full md:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-green-700"
     >
       🌍 Importer compétition
+    </button>
+
+    <button
+      onClick={() => importerMatchs("LAST_16")}
+      className="w-full md:w-auto bg-blue-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-blue-700"
+    >
+      Importer depuis les 1/8
     </button>
 
   </div>

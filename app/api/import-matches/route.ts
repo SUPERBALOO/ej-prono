@@ -11,9 +11,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+const stageOrder = [
+  "GROUP_STAGE",
+  "LAST_16",
+  "QUARTER_FINALS",
+  "SEMI_FINALS",
+  "THIRD_PLACE",
+  "FINAL",
+];
+
+function getAllowedStages(fromStage?: string) {
+  if (!fromStage) {
+    return null;
+  }
+
+  const stageIndex = stageOrder.indexOf(fromStage);
+
+  if (stageIndex === -1) {
+    return null;
+  }
+
+  return stageOrder.slice(stageIndex);
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { concoursId } = await req.json();
+    const { concoursId, fromStage } = await req.json();
+    const allowedStages = getAllowedStages(fromStage);
 
     const { data: concours, error: concoursError } = await supabase
       .from("concours")
@@ -83,7 +107,9 @@ export async function POST(req: NextRequest) {
       .filter(
         (m: any) =>
           m.homeTeam?.name &&
-          m.awayTeam?.name
+          m.awayTeam?.name &&
+          (!allowedStages ||
+            allowedStages.includes(m.stage))
       )
       .map((m: any) => ({
         api_match_id: m.id,
@@ -114,13 +140,24 @@ export async function POST(req: NextRequest) {
       `${matchsValides.length} matchs valides sur ${data.matches.length}`
     );
 
+    if (!matchsValides.length) {
+      return NextResponse.json({
+        success: true,
+        imported: 0,
+        ignored: data.matches.length,
+        fromStage: fromStage || null,
+        oddsUpdated: 0,
+        oddsSkipped: 0,
+      });
+    }
+
     const {
       data: importedMatches,
       error,
     } = await supabase
       .from("matches")
       .upsert(matchsValides, {
-        onConflict: "api_match_id",
+        onConflict: "concours_id,api_match_id",
       })
       .select("*");
 
@@ -178,6 +215,7 @@ export async function POST(req: NextRequest) {
       imported: matchsValides.length,
       ignored:
         data.matches.length - matchsValides.length,
+      fromStage: fromStage || null,
       oddsUpdated,
       oddsSkipped,
     });

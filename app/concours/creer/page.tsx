@@ -15,13 +15,26 @@ export default function CreerConcoursPage() {
   const [dateFin, setDateFin] = useState("");
   const [maxJoueurs, setMaxJoueurs] = useState(100);
   const [imageUrl, setImageUrl] = useState("");
+  const [competitionId, setCompetitionId] = useState("");
+  const [competitions, setCompetitions] = useState<any[]>([]);
 
   const [chargement, setChargement] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     verifierAdmin();
+    chargerCompetitions();
   }, []);
+
+  async function chargerCompetitions() {
+    const { data } = await supabase
+      .from("competitions")
+      .select("*")
+      .eq("actif", true)
+      .order("nom");
+
+    setCompetitions(data || []);
+  }
 
   async function verifierAdmin() {
     const {
@@ -74,6 +87,7 @@ export default function CreerConcoursPage() {
         actif: true,
         max_joueurs: maxJoueurs,
         image_url: imageUrl || null,
+        competition_id: competitionId || null,
       });
 
       if (error) {
@@ -168,6 +182,31 @@ export default function CreerConcoursPage() {
               />
             </div>
 
+          </div>
+
+          <div>
+            <label className="block text-[#D8AA82] font-medium mb-2">
+              Competition officielle
+            </label>
+
+            <select
+              value={competitionId}
+              onChange={(e) => setCompetitionId(e.target.value)}
+              className="w-full p-4 rounded-lg bg-white text-black border border-gray-300"
+            >
+              <option value="">
+                Selectionner une competition
+              </option>
+
+              {competitions.map((competition) => (
+                <option
+                  key={competition.id}
+                  value={competition.id}
+                >
+                  {competition.nom}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
