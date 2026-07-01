@@ -225,16 +225,20 @@ export default function CreerConcoursPage() {
 
           <div>
             <label className="block text-[#D8AA82] font-medium mb-2">
-              URL image du concours (optionnel)
+              Lien de l'image du concours (optionnel)
             </label>
 
             <input
-              type="text"
+              type="url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder="https://exemple.com/image.jpg"
               className="w-full p-4 rounded-lg bg-white text-black border border-gray-300"
             />
+
+            <p className="mt-2 text-sm text-gray-300">
+              Collez ici un lien direct vers une image en ligne.
+            </p>
           </div>
 
           {message && (

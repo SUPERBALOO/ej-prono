@@ -180,7 +180,7 @@ export default function ProfilPage() {
 
               <div className="mb-6">
                 <label className="block mb-2 text-[#c9a27e]">
-                  Avatar / photo
+                  Lien de l'image avatar / photo
                 </label>
 
                 <div className="flex flex-col md:flex-row gap-4 md:items-center">
@@ -209,9 +209,15 @@ export default function ProfilPage() {
                       bg-white
                       text-black
                     "
-                    placeholder="URL de l'image"
+                    placeholder="https://exemple.com/photo.jpg"
                   />
                 </div>
+
+                <p className="mt-2 text-sm text-gray-400">
+                  Collez ici un lien direct vers une image en ligne.
+                  Ce n'est pas encore un envoi de fichier depuis le
+                  telephone.
+                </p>
               </div>
 
               <div className="mb-6">

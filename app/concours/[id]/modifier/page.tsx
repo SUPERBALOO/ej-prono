@@ -320,14 +320,14 @@ export default function ModifierConcoursPage() {
             {/* IMAGE */}
             <div>
               <label className="block font-semibold text-[#D8AA82] mb-2">
-                URL image du concours
+                Lien de l'image du concours
               </label>
 
               <input
                 type="url"
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder="https://exemple.com/image.jpg"
                 className="
                   w-full
                   p-3 md:p-4
@@ -338,6 +338,10 @@ export default function ModifierConcoursPage() {
                   border-[#4A5D75]
                 "
               />
+
+              <p className="mt-2 text-sm text-gray-300">
+                Collez ici un lien direct vers une image en ligne.
+              </p>
 
               {imageUrl && (
                 <img
