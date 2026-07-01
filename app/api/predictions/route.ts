@@ -345,9 +345,19 @@ for (const matchToSave of matchesToSave) {
   );
 }
 
+const updatedMatchIds = matchesToSave.map(
+  (matchToSave: any) => matchToSave.id
+);
+
+const { data: updatedMatches } = await supabase
+  .from("matches")
+  .select("*")
+  .in("id", updatedMatchIds);
+
     return NextResponse.json({
       success: true,
       saved: predictionsToSave.length,
+      updatedMatches: updatedMatches || [],
     });
   } catch (error: any) {
     return NextResponse.json(

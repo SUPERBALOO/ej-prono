@@ -355,6 +355,31 @@ export default function PronosticsPage() {
       return;
     }
 
+    const updatedMatches = result.updatedMatches || [];
+
+    if (updatedMatches.length) {
+      const updatedById = new Map(
+        updatedMatches.map((match: any) => [
+          match.id,
+          match,
+        ])
+      );
+
+      setMatchs48h((prev: any[]) =>
+        prev.map((match: any) => {
+          const updatedMatch = updatedById.get(match.id);
+
+          return updatedMatch
+            ? {
+                ...match,
+                ...updatedMatch,
+                concours_nom: match.concours_nom,
+              }
+            : match;
+        })
+      );
+    }
+
     setSavedPredictions((prev: any) => ({
       ...prev,
       [matchId]: true,
@@ -365,13 +390,19 @@ export default function PronosticsPage() {
       [matchId]: false,
     }));
 
-    const nouvelleTendance =
-      await chargerTendances(matchId);
+    const tendanceMatchIds = updatedMatches.length
+      ? updatedMatches.map((match: any) => match.id)
+      : [matchId];
 
-    setTendances((prev: any) => ({
-      ...prev,
-      [matchId]: nouvelleTendance,
-    }));
+    for (const tendanceMatchId of tendanceMatchIds) {
+      const nouvelleTendance =
+        await chargerTendances(tendanceMatchId);
+
+      setTendances((prev: any) => ({
+        ...prev,
+        [tendanceMatchId]: nouvelleTendance,
+      }));
+    }
   }
 
   return (

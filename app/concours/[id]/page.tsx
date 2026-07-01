@@ -368,13 +368,56 @@ if (!response.ok) {
   return;
 }
 
-const nouvelleTendance =
-  await chargerTendances(matchId);
+const updatedMatches = result.updatedMatches || [];
 
-setTendances((prev: any) => ({
-  ...prev,
-  [matchId]: nouvelleTendance,
-}));
+if (updatedMatches.length) {
+  const updatedById = new Map(
+    updatedMatches.map((match: any) => [
+      match.id,
+      match,
+    ])
+  );
+
+  setMatches((prev: any[]) =>
+    prev.map((match: any) => {
+      const updatedMatch = updatedById.get(match.id);
+
+      return updatedMatch
+        ? {
+            ...match,
+            ...updatedMatch,
+          }
+        : match;
+    })
+  );
+
+  setMatchs48h((prev: any[]) =>
+    prev.map((match: any) => {
+      const updatedMatch = updatedById.get(match.id);
+
+      return updatedMatch
+        ? {
+            ...match,
+            ...updatedMatch,
+          }
+        : match;
+    })
+  );
+}
+
+const tendanceMatchIds = updatedMatches.length
+  ? updatedMatches.map((match: any) => match.id)
+  : [matchId];
+
+for (const tendanceMatchId of tendanceMatchIds) {
+  const nouvelleTendance =
+    await chargerTendances(tendanceMatchId);
+
+  setTendances((prev: any) => ({
+    ...prev,
+    [tendanceMatchId]: nouvelleTendance,
+  }));
+}
 
 
 
