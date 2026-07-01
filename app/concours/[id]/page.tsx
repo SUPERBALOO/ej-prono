@@ -138,10 +138,9 @@ const { data: pronos } = await supabase
   .select("*")
   .eq("user_id", user?.id);
 
-const { data: pointsData } = await supabase
-  .from("points")
-  .select("match_id,points,exact_score")
-  .eq("user_id", user.id);
+const {
+  data: { session },
+} = await supabase.auth.getSession();
 
 const savedMap: any = {};
 const predictionsMap: any = {};
@@ -161,12 +160,31 @@ setSavedPredictions(savedMap);
 setPredictions(predictionsMap);
 setUserPronosCount(pronos?.length || 0);
 
-(pointsData || []).forEach((row: any) => {
-  pointsMap[row.match_id] = {
-    points: row.points,
-    exact_score: row.exact_score,
-  };
-});
+if (session?.access_token) {
+  try {
+    const pointsResponse = await fetch(
+      `/api/points/me?concoursId=${concoursId}`,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${session.access_token}`,
+        },
+      }
+    );
+
+    const pointsResult =
+      await pointsResponse.json();
+
+    (pointsResult.points || []).forEach((row: any) => {
+      pointsMap[row.match_id] = {
+        points: row.points,
+        exact_score: row.exact_score,
+      };
+    });
+  } catch (error) {
+    console.error(error);
+  }
+}
 
 setUserPointsByMatch(pointsMap);
 
