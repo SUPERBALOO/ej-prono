@@ -7,13 +7,30 @@ import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import PushReminderButton from "@/components/PushReminderButton";
 
+const GROUP_COMPANIES = [
+  "Sadrin Rapin",
+  "Le Batimans",
+  "DLB Couverture",
+  "Préfa Béton 72",
+  "Bâti Propreté",
+  "Divaré",
+  "EPSI Electricité",
+  "LBM ENERGIES",
+  "BJC",
+  "HANNY",
+  "Groupe EJ",
+];
+
+const OTHER_COMPANY_VALUE = "__OTHER__";
+
 export default function ProfilPage() {
   const router = useRouter();
 
   const [pseudo, setPseudo] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [company, setCompany] = useState("");
+  const [companyChoice, setCompanyChoice] = useState("");
+  const [customCompany, setCustomCompany] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [email, setEmail] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -54,7 +71,21 @@ export default function ProfilPage() {
       setPseudo(data.pseudo || "");
       setFirstName(data.first_name || "");
       setLastName(data.last_name || "");
-      setCompany(data.company || "");
+
+      if (
+        data.company &&
+        GROUP_COMPANIES.includes(data.company)
+      ) {
+        setCompanyChoice(data.company);
+        setCustomCompany("");
+      } else if (data.company) {
+        setCompanyChoice(OTHER_COMPANY_VALUE);
+        setCustomCompany(data.company);
+      } else {
+        setCompanyChoice("");
+        setCustomCompany("");
+      }
+
       setAvatarUrl(data.avatar_url || "");
       setEmail(data.email || "");
       setIsAdmin(data.is_admin);
@@ -68,6 +99,11 @@ export default function ProfilPage() {
     } = await supabase.auth.getUser();
 
     if (!user) return;
+
+    const company =
+      companyChoice === OTHER_COMPANY_VALUE
+        ? customCompany.trim()
+        : companyChoice;
 
     const { error } = await supabase
       .from("profiles")
@@ -237,10 +273,17 @@ export default function ProfilPage() {
                   Entreprise
                 </label>
 
-                <input
-                  type="text"
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
+                <select
+                  value={companyChoice}
+                  onChange={(e) => {
+                    setCompanyChoice(e.target.value);
+
+                    if (
+                      e.target.value !== OTHER_COMPANY_VALUE
+                    ) {
+                      setCustomCompany("");
+                    }
+                  }}
                   className="
                     w-full
                     p-3
@@ -248,7 +291,43 @@ export default function ProfilPage() {
                     bg-white
                     text-black
                   "
-                />
+                >
+                  <option value="">
+                    Selectionner une entreprise
+                  </option>
+
+                  {GROUP_COMPANIES.map((companyName) => (
+                    <option
+                      key={companyName}
+                      value={companyName}
+                    >
+                      {companyName}
+                    </option>
+                  ))}
+
+                  <option value={OTHER_COMPANY_VALUE}>
+                    Autre
+                  </option>
+                </select>
+
+                {companyChoice === OTHER_COMPANY_VALUE && (
+                  <input
+                    type="text"
+                    value={customCompany}
+                    onChange={(e) =>
+                      setCustomCompany(e.target.value)
+                    }
+                    className="
+                      mt-3
+                      w-full
+                      p-3
+                      rounded-lg
+                      bg-white
+                      text-black
+                    "
+                    placeholder="Nom de l'entreprise"
+                  />
+                )}
               </div>
 
               <div className="mb-6">
