@@ -114,9 +114,15 @@ export default function PlayerProfileModal({
     .join(" ");
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-xl rounded-2xl bg-[#33465D] p-5 text-white shadow-2xl md:p-6">
-        <div className="mb-5 flex items-start justify-between gap-4">
+    <div
+      className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-black/60 p-3 pt-6 sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-[#33465D] p-5 text-white shadow-2xl md:p-6"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 -mx-5 -mt-5 mb-5 flex items-start justify-between gap-4 rounded-t-2xl bg-[#33465D] p-5 md:-mx-6 md:-mt-6 md:p-6">
           <div className="flex items-center gap-4">
             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#D8AA82] flex items-center justify-center text-2xl font-bold text-[#1E3047]">
               {profile.avatar_url ? (
@@ -152,7 +158,7 @@ export default function PlayerProfileModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-[#1E3047] p-2 text-white hover:opacity-90"
+            className="shrink-0 rounded-lg bg-[#1E3047] p-3 text-white shadow-lg hover:opacity-90"
             aria-label="Fermer"
           >
             <X size={20} />
