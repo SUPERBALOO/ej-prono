@@ -30,7 +30,7 @@ export async function GET(
     const { data: matches, error: matchesError } =
       await supabase
         .from("matches")
-        .select("id")
+        .select("id,match_date,status")
         .eq("concours_id", concoursID);
 
     if (matchesError) {
@@ -39,6 +39,20 @@ export async function GET(
 
     const matchIds =
       matches?.map((match) => match.id) || [];
+
+    const recentFinishedMatchIds = (matches || [])
+      .filter((match: any) => match.status === "finished")
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.match_date || 0).getTime() -
+          new Date(a.match_date || 0).getTime()
+      )
+      .slice(0, 3)
+      .map((match: any) => match.id);
+
+    const recentFinishedMatchIdsSet = new Set(
+      recentFinishedMatchIds
+    );
 
     // Profils
     let profils: any[] | null = null;
@@ -79,6 +93,7 @@ export async function GET(
         ? await supabase
             .from("points")
             .select(`
+              match_id,
               points,
               exact_score
             `)
@@ -99,6 +114,26 @@ export async function GET(
         (row) => (row.points || 0) > 0
       ).length;
 
+      const previousPointsData = (pointsData || []).filter(
+        (row: any) =>
+          !recentFinishedMatchIdsSet.has(row.match_id)
+      );
+
+      const previousPoints = previousPointsData.reduce(
+        (sum, row) => sum + (row.points || 0),
+        0
+      );
+
+      const previousScoresExacts =
+        previousPointsData.filter(
+          (row: any) => row.exact_score
+        ).length;
+
+      const previousBonsPronos =
+        previousPointsData.filter(
+          (row: any) => (row.points || 0) > 0
+        ).length;
+
       classement.push({
         user_id: userId,
         pseudo:
@@ -110,6 +145,9 @@ export async function GET(
         points: totalPoints,
         bons_pronos: bonsPronos,
         scores_exacts: scoresExacts,
+        previous_points: previousPoints,
+        previous_bons_pronos: previousBonsPronos,
+        previous_scores_exacts: previousScoresExacts,
       });
     }
 
@@ -125,7 +163,61 @@ export async function GET(
       return b.bons_pronos - a.bons_pronos;
     });
 
-    return NextResponse.json(classement);
+    const currentRanks = new Map<string, number>();
+
+    classement.forEach((row, index) => {
+      currentRanks.set(row.user_id, index + 1);
+    });
+
+    const previousClassement = [...classement].sort(
+      (a, b) => {
+        if (b.previous_points !== a.previous_points) {
+          return b.previous_points - a.previous_points;
+        }
+
+        if (
+          b.previous_scores_exacts !==
+          a.previous_scores_exacts
+        ) {
+          return (
+            b.previous_scores_exacts -
+            a.previous_scores_exacts
+          );
+        }
+
+        return (
+          b.previous_bons_pronos -
+          a.previous_bons_pronos
+        );
+      }
+    );
+
+    const previousRanks = new Map<string, number>();
+
+    previousClassement.forEach((row, index) => {
+      previousRanks.set(row.user_id, index + 1);
+    });
+
+    const classementWithMovement = classement.map((row) => {
+      const currentRank =
+        currentRanks.get(row.user_id) || null;
+      const previousRank =
+        previousRanks.get(row.user_id) || null;
+
+      return {
+        ...row,
+        current_rank: currentRank,
+        previous_rank: previousRank,
+        rank_movement:
+          currentRank && previousRank
+            ? previousRank - currentRank
+            : 0,
+        rank_recent_matches_count:
+          recentFinishedMatchIds.length,
+      };
+    });
+
+    return NextResponse.json(classementWithMovement);
 
   } catch (error: any) {
 

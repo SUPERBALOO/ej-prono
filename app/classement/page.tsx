@@ -24,6 +24,8 @@ type RankingRow = {
   points: number;
   bons_pronos: number;
   scores_exacts: number;
+  rank_movement?: number;
+  rank_recent_matches_count?: number;
 };
 
 type RankingBlock = {
@@ -164,11 +166,52 @@ export default function ClassementPage() {
     );
   }
 
-  function renderRankIcon(index: number) {
+  function renderRankBadge(index: number) {
     if (index === 0) return "🏆";
     if (index === 1) return "🥈";
     if (index === 2) return "🥉";
-    return "↗";
+    return null;
+  }
+
+  function renderRankTrend(joueur: RankingRow) {
+    const movement = joueur.rank_movement || 0;
+    const matchesCount =
+      joueur.rank_recent_matches_count || 0;
+
+    if (!matchesCount) {
+      return null;
+    }
+
+    if (movement > 0) {
+      return (
+        <span
+          className="rounded-full bg-green-600/20 px-2 py-1 text-xs font-bold text-green-300"
+          title={`A gagne ${movement} place(s) sur les ${matchesCount} derniers matchs`}
+        >
+          ↑ +{movement}
+        </span>
+      );
+    }
+
+    if (movement < 0) {
+      return (
+        <span
+          className="rounded-full bg-red-600/20 px-2 py-1 text-xs font-bold text-red-200"
+          title={`A perdu ${Math.abs(movement)} place(s) sur les ${matchesCount} derniers matchs`}
+        >
+          ↓ {movement}
+        </span>
+      );
+    }
+
+    return (
+      <span
+        className="rounded-full bg-gray-600/30 px-2 py-1 text-xs font-bold text-gray-200"
+        title={`Rang maintenu sur les ${matchesCount} derniers matchs`}
+      >
+        →
+      </span>
+    );
   }
 
   return (
@@ -287,9 +330,12 @@ export default function ClassementPage() {
                                         <span>
                                           {joueur.pseudo}
                                         </span>
-                                        <span className="text-xs text-[#D8AA82]">
-                                          {renderRankIcon(index)}
-                                        </span>
+                                        {renderRankBadge(index) && (
+                                          <span className="text-xs text-[#D8AA82]">
+                                            {renderRankBadge(index)}
+                                          </span>
+                                        )}
+                                        {renderRankTrend(joueur)}
                                       </div>
                                     </div>
                                   </button>

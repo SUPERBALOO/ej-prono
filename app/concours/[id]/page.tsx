@@ -912,6 +912,54 @@ function renderProgressIcon(index: number) {
   return "↗";
 }
 
+function renderRankBadge(index: number) {
+  if (index === 0) return renderProgressIcon(0);
+  if (index === 1) return renderProgressIcon(1);
+  if (index === 2) return renderProgressIcon(2);
+  return null;
+}
+
+function renderRankTrend(joueur: any) {
+  const movement = joueur.rank_movement || 0;
+  const matchesCount =
+    joueur.rank_recent_matches_count || 0;
+
+  if (!matchesCount) {
+    return null;
+  }
+
+  if (movement > 0) {
+    return (
+      <span
+        className="rounded-full bg-green-600/20 px-2 py-1 text-xs font-bold text-green-300"
+        title={`A gagne ${movement} place(s) sur les ${matchesCount} derniers matchs`}
+      >
+        ↑ +{movement}
+      </span>
+    );
+  }
+
+  if (movement < 0) {
+    return (
+      <span
+        className="rounded-full bg-red-600/20 px-2 py-1 text-xs font-bold text-red-200"
+        title={`A perdu ${Math.abs(movement)} place(s) sur les ${matchesCount} derniers matchs`}
+      >
+        ↓ {movement}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="rounded-full bg-gray-600/30 px-2 py-1 text-xs font-bold text-gray-200"
+      title={`Rang maintenu sur les ${matchesCount} derniers matchs`}
+    >
+      →
+    </span>
+  );
+}
+
   async function copierCode() {
     if (!concours?.code_acces) return;
 
@@ -1403,8 +1451,11 @@ className="
               {renderPlayerAvatar(joueur)}
 
               <div className="flex items-center gap-2 font-semibold">
-                <span>{renderProgressIcon(index)}</span>
+                {renderRankBadge(index) && (
+                  <span>{renderRankBadge(index)}</span>
+                )}
                 <span>{joueur.pseudo}</span>
+                {renderRankTrend(joueur)}
               </div>
             </button>
           </td>
