@@ -5,6 +5,10 @@ import {
 import { createClient } from "@supabase/supabase-js";
 import { calculatePoints } from "@/lib/calculatePoints";
 import { getMatchScoreUpdate } from "@/lib/matchScores";
+import {
+  importCompetitionMatches,
+  inferImportStageFromConcoursName,
+} from "@/lib/importCompetitionMatches";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +18,7 @@ const supabase = createClient(
 const UPCOMING_WINDOW_HOURS = 3;
 const RECENT_WINDOW_HOURS = 6;
 const FULL_RECENT_DAYS = 7;
+const AUTO_IMPORT_INTERVAL_MINUTES = 15;
 
 function hoursFromNow(hours: number) {
   return new Date(
@@ -46,6 +51,64 @@ export async function GET(req: NextRequest) {
 
     const fullSync =
       req.nextUrl.searchParams.get("full") === "1";
+
+    const importMissing =
+      req.nextUrl.searchParams.get("importMissing") ===
+      "1";
+
+    const forceImport =
+      req.nextUrl.searchParams.get("forceImport") ===
+      "1";
+
+    let autoImport = {
+      enabled: importMissing,
+      attempted: 0,
+      imported: 0,
+      skipped: 0,
+      intervalMinutes: AUTO_IMPORT_INTERVAL_MINUTES,
+    };
+
+    if (
+      importMissing &&
+      (forceImport ||
+        new Date().getUTCMinutes() %
+          AUTO_IMPORT_INTERVAL_MINUTES ===
+          0)
+    ) {
+      const { data: concoursList, error: concoursError } =
+        await supabase
+          .from("concours")
+          .select("id,nom,competition_id,actif")
+          .eq("actif", true)
+          .not("competition_id", "is", null);
+
+      if (concoursError) {
+        throw concoursError;
+      }
+
+      for (const concours of concoursList || []) {
+        try {
+          const result =
+            await importCompetitionMatches({
+              supabase,
+              concoursId: concours.id,
+              fromStage:
+                inferImportStageFromConcoursName(
+                  concours.nom
+                ),
+            });
+
+          autoImport.attempted++;
+          autoImport.imported += result.imported || 0;
+        } catch (error) {
+          autoImport.skipped++;
+          console.error(
+            `Erreur import auto concours ${concours.id}`,
+            error
+          );
+        }
+      }
+    }
 
     let query = supabase
       .from("matches")
@@ -119,6 +182,7 @@ export async function GET(req: NextRequest) {
         checked: 0,
         candidates: 0,
         mode: fullSync ? "full" : "live-window",
+        autoImport,
         message: "Aucun match a synchroniser",
       });
     }
@@ -249,6 +313,7 @@ export async function GET(req: NextRequest) {
       checked: apiResponses.size,
       candidates: matches.length,
       mode: fullSync ? "full" : "live-window",
+      autoImport,
     });
   } catch (error: any) {
     console.error(error);

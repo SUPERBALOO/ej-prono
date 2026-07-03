@@ -1052,6 +1052,24 @@ function renderRankTrend(joueur: any) {
   );
 }
 
+function getDefaultImportStage(concoursName?: string) {
+  const normalized = (concoursName || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (
+    normalized.includes("1/8") ||
+    normalized.includes("huitieme") ||
+    normalized.includes("huitiemes") ||
+    normalized.includes("last 16")
+  ) {
+    return "LAST_16";
+  }
+
+  return null;
+}
+
   async function copierCode() {
     if (!concours?.code_acces) return;
 
@@ -1066,8 +1084,12 @@ function renderRankTrend(joueur: any) {
 
 async function importerMatchs(fromStage?: string) {
   try {
+    const effectiveFromStage =
+      fromStage ||
+      getDefaultImportStage(concours?.nom);
+
     const importLabel =
-      fromStage === "LAST_16"
+      effectiveFromStage === "LAST_16"
         ? "les matchs depuis les huitiemes"
         : "toute la competition";
 
@@ -1086,7 +1108,7 @@ async function importerMatchs(fromStage?: string) {
       },
       body: JSON.stringify({
         concoursId,
-        fromStage,
+        fromStage: effectiveFromStage,
       }),
     });
 
@@ -1804,10 +1826,16 @@ className="
     </button>
 
     <button
-      onClick={() => importerMatchs()}
+      onClick={() =>
+        importerMatchs(
+          getDefaultImportStage(concours?.nom) || undefined
+        )
+      }
       className="w-full md:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-green-700"
     >
-      🌍 Importer compétition
+      {getDefaultImportStage(concours?.nom)
+        ? "Importer phases finales"
+        : "🌍 Importer compétition"}
     </button>
 
     <button
