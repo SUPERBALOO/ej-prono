@@ -13,6 +13,12 @@ export default function DashboardPage() {
 
   const [pseudo, setPseudo] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [adminStats, setAdminStats] = useState<{
+    usersCount: number | null;
+    pushEnabledCount: number | null;
+    installationsCount: number | null;
+    warnings?: string[];
+  } | null>(null);
 
   useEffect(() => {
     chargerProfil();
@@ -42,6 +48,40 @@ export default function DashboardPage() {
     if (data) {
       setPseudo(data.pseudo);
       setIsAdmin(data.is_admin);
+
+      if (data.is_admin) {
+        chargerStatsAdmin();
+      }
+    }
+  }
+
+  async function chargerStatsAdmin() {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        return;
+      }
+
+      const response = await fetch("/api/admin/stats", {
+        headers: {
+          Authorization:
+            `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error(result.error);
+        return;
+      }
+
+      setAdminStats(result);
+    } catch (error) {
+      console.error(error);
     }
   }
 
@@ -150,6 +190,42 @@ export default function DashboardPage() {
               </Link>
 
               <AdminPushPanel />
+
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl bg-[#223246] p-4">
+                  <p className="text-sm text-gray-300">
+                    Utilisateurs inscrits
+                  </p>
+                  <p className="mt-2 text-3xl font-bold text-[#C7A27F]">
+                    {adminStats?.usersCount ?? "-"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-[#223246] p-4">
+                  <p className="text-sm text-gray-300">
+                    Notifications activees
+                  </p>
+                  <p className="mt-2 text-3xl font-bold text-[#C7A27F]">
+                    {adminStats?.pushEnabledCount ?? "-"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl bg-[#223246] p-4">
+                  <p className="text-sm text-gray-300">
+                    Applications installees
+                  </p>
+                  <p className="mt-2 text-3xl font-bold text-[#C7A27F]">
+                    {adminStats?.installationsCount ?? "-"}
+                  </p>
+                </div>
+              </div>
+
+              {!!adminStats?.warnings?.length && (
+                <p className="mt-3 text-sm text-yellow-200">
+                  Stats partielles : table de suivi des installations
+                  a creer dans Supabase.
+                </p>
+              )}
             </div>
           )}
 

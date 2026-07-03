@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Download, Share, Smartphone, X } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -31,6 +32,24 @@ function isStandalone() {
   );
 }
 
+function getPlatform() {
+  if (typeof window === "undefined") {
+    return "unknown";
+  }
+
+  const userAgent = window.navigator.userAgent;
+
+  if (/iphone|ipad|ipod/i.test(userAgent)) {
+    return "ios";
+  }
+
+  if (/android/i.test(userAgent)) {
+    return "android";
+  }
+
+  return "desktop";
+}
+
 export default function InstallAppButton() {
   const [installPrompt, setInstallPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
@@ -38,7 +57,13 @@ export default function InstallAppButton() {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
-    setInstalled(isStandalone());
+    const standalone = isStandalone();
+
+    setInstalled(standalone);
+
+    if (standalone) {
+      trackInstallation("standalone");
+    }
 
     const handleBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
@@ -49,6 +74,7 @@ export default function InstallAppButton() {
       setInstalled(true);
       setInstallPrompt(null);
       setShowIosHelp(false);
+      trackInstallation("appinstalled");
     };
 
     window.addEventListener(
@@ -69,6 +95,33 @@ export default function InstallAppButton() {
     };
   }, []);
 
+  async function trackInstallation(source: string) {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        return;
+      }
+
+      await fetch("/api/app-installations/track", {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          platform: getPlatform(),
+          source,
+        }),
+      });
+    } catch (error) {
+      console.error("Installation tracking:", error);
+    }
+  }
+
   async function installApp() {
     if (!installPrompt) {
       setShowIosHelp(true);
@@ -76,7 +129,12 @@ export default function InstallAppButton() {
     }
 
     await installPrompt.prompt();
-    await installPrompt.userChoice;
+    const choice = await installPrompt.userChoice;
+
+    if (choice.outcome === "accepted") {
+      trackInstallation("accepted_prompt");
+    }
+
     setInstallPrompt(null);
   }
 
