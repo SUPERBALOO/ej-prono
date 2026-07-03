@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import InstallAppButton from "@/components/InstallAppButton";
+import PushReminderButton from "@/components/PushReminderButton";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -97,6 +98,8 @@ const menuItems = [
         </nav>
 
         <div className="p-4 border-t border-[#42536A]">
+          <PushReminderButton compact hideUnsupported />
+
           <InstallAppButton />
 
           <button

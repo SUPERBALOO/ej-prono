@@ -24,7 +24,15 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-export default function PushReminderButton() {
+type PushReminderButtonProps = {
+  compact?: boolean;
+  hideUnsupported?: boolean;
+};
+
+export default function PushReminderButton({
+  compact = false,
+  hideUnsupported = false,
+}: PushReminderButtonProps) {
   const [
     notificationPermission,
     setNotificationPermission,
@@ -154,6 +162,10 @@ export default function PushReminderButton() {
   }
 
   if (notificationPermission === "unsupported") {
+    if (hideUnsupported) {
+      return null;
+    }
+
     return (
       <div className="rounded-xl bg-[#223246] p-4 text-sm text-gray-300">
         Les notifications push ne sont pas supportees sur cet appareil.
@@ -162,6 +174,14 @@ export default function PushReminderButton() {
   }
 
   if (notificationPermission === "denied") {
+    if (compact) {
+      return (
+        <div className="rounded-lg bg-[#223246] p-3 text-xs text-gray-300">
+          Notifications bloquees dans les reglages.
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-xl bg-[#223246] p-4 text-sm text-gray-300">
         Les notifications sont bloquees. Il faut les autoriser dans les
@@ -170,8 +190,22 @@ export default function PushReminderButton() {
     );
   }
 
+  if (compact && notificationPermission === "granted") {
+    return null;
+  }
+
   return (
-    <div className="space-y-3">
+    <div className={
+      compact
+        ? "mb-3 space-y-2 rounded-lg bg-[#26384d] p-3"
+        : "space-y-3"
+    }>
+      {compact && (
+        <p className="text-xs font-semibold text-[#D8AA82]">
+          Rappels avant match
+        </p>
+      )}
+
       <button
         type="button"
         onClick={activerNotificationsRappel}
@@ -182,7 +216,7 @@ export default function PushReminderButton() {
         className="
           w-full
           md:w-auto
-          px-6
+          px-4
           py-3
           rounded-lg
           bg-[#c9a27e]
@@ -198,11 +232,13 @@ export default function PushReminderButton() {
           ? "Rappels actives"
           : loading
           ? "Activation..."
+          : compact
+          ? "Activer"
           : "Activer les rappels"}
       </button>
 
       {message && (
-        <p className="text-sm text-green-300">
+        <p className={compact ? "text-xs text-green-300" : "text-sm text-green-300"}>
           {message}
         </p>
       )}
