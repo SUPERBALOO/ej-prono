@@ -2031,7 +2031,7 @@ className="
     ) : (
       <div className="space-y-4">
 
-        {participants.map((participant, index) => (
+        {participants.map((participant) => (
 
           <div
             key={participant.id}
@@ -2048,15 +2048,6 @@ className="
               className="flex items-center gap-3 text-left hover:text-[#D8AA82]"
             >
   {renderPlayerAvatar(getParticipantPlayer(participant))}
-  <div className="w-10 h-10 rounded-full bg-[#D8AA82] flex items-center justify-center font-bold text-[#1E3047]">
-  {index === 0
-    ? "🥇"
-    : index === 1
-    ? "🥈"
-    : index === 2
-    ? "🥉"
-    : index + 1}
-</div>
 
   <div>
     <div className="flex items-center gap-2">
