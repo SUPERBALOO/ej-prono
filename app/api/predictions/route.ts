@@ -188,11 +188,14 @@ export async function GET(req: NextRequest) {
             continue;
           }
 
-          const predictionOdds = getPredictionOdds(
-            match,
-            sourcePrediction.pred_home,
-            sourcePrediction.pred_away
-          );
+          const predictionOdds =
+            sourcePrediction.locked_odds ??
+            sourcePrediction.prediction_odds ??
+            getPredictionOdds(
+              match,
+              sourcePrediction.pred_home,
+              sourcePrediction.pred_away
+            );
 
           const predictionToInsert = {
             user_id: user.id,
@@ -295,21 +298,42 @@ export async function POST(req: NextRequest) {
         : [match];
     }
 
+    const origin = req.nextUrl.origin;
+
+    await fetch(
+      `${origin}/api/recalculate-odds`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          matchId: match.id,
+        }),
+      }
+    );
+
+    const { data: refreshedMatch } = await supabase
+      .from("matches")
+      .select("*")
+      .eq("id", match.id)
+      .single();
+
+    const commonPredictionOdds = getPredictionOdds(
+      refreshedMatch || match,
+      pred_home,
+      pred_away
+    );
+
     const predictionsToSave = matchesToSave.map(
       (matchToSave: any) => {
-        const predictionOdds = getPredictionOdds(
-          matchToSave,
-          pred_home,
-          pred_away
-        );
-
         return {
           user_id,
           match_id: matchToSave.id,
           pred_home,
           pred_away,
-          prediction_odds: predictionOdds,
-          locked_odds: predictionOdds,
+          prediction_odds: commonPredictionOdds,
+          locked_odds: commonPredictionOdds,
         };
       }
     );
@@ -322,37 +346,31 @@ export async function POST(req: NextRequest) {
           onConflict: "user_id,match_id",
         }
       );
-console.log("UPSERT ERROR =", error);
-console.log("USER =", user_id);
-console.log("MATCH =", match_id);
     if (error) {
       throw error;
     }
-const origin = req.nextUrl.origin;
 
-for (const matchToSave of matchesToSave) {
-  await fetch(
-    `${origin}/api/recalculate-odds`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        matchId: matchToSave.id,
-      }),
-    }
-  );
-}
+    await fetch(
+      `${origin}/api/recalculate-odds`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          matchId: match.id,
+        }),
+      }
+    );
 
-const updatedMatchIds = matchesToSave.map(
-  (matchToSave: any) => matchToSave.id
-);
+    const updatedMatchIds = matchesToSave.map(
+      (matchToSave: any) => matchToSave.id
+    );
 
-const { data: updatedMatches } = await supabase
-  .from("matches")
-  .select("*")
-  .in("id", updatedMatchIds);
+    const { data: updatedMatches } = await supabase
+      .from("matches")
+      .select("*")
+      .in("id", updatedMatchIds);
 
     return NextResponse.json({
       success: true,

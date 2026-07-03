@@ -197,6 +197,7 @@ export default function PronosticsPage() {
 
     const tendancesMap: any = {};
     const scoresParMatch: any = {};
+    const countedUsersByMatch = new Set<string>();
 
     for (const match of prochainsMatchs) {
       tendancesMap[match.id] = {
@@ -216,6 +217,15 @@ export default function PronosticsPage() {
       const tendance = tendancesMap[displayMatchId];
 
       if (!tendance) return;
+
+      const countedKey =
+        `${displayMatchId}:${prediction.user_id}`;
+
+      if (countedUsersByMatch.has(countedKey)) {
+        return;
+      }
+
+      countedUsersByMatch.add(countedKey);
 
       if (prediction.pred_home > prediction.pred_away) tendance.home++;
       else if (prediction.pred_home < prediction.pred_away) tendance.away++;

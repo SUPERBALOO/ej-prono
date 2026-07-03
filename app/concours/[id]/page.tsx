@@ -510,10 +510,40 @@ async function quitterConcours(id: string) {
 
 async function chargerTendances(matchId: string) {
 
+  const { data: match } = await supabase
+    .from("matches")
+    .select("id,api_match_id")
+    .eq("id", matchId)
+    .single();
+
+  let matchIds = [matchId];
+
+  if (match?.api_match_id) {
+    const { data: linkedMatches } = await supabase
+      .from("matches")
+      .select("id")
+      .eq("api_match_id", match.api_match_id);
+
+    matchIds =
+      linkedMatches?.map((linkedMatch: any) => linkedMatch.id) ||
+      [matchId];
+  }
+
   const { data } = await supabase
     .from("predictions")
     .select("*")
-    .eq("match_id", matchId);
+    .in("match_id", matchIds);
+
+  const predictionsByUser = new Map<string, any>();
+
+  (data || []).forEach((prediction: any) => {
+    if (!predictionsByUser.has(prediction.user_id)) {
+      predictionsByUser.set(
+        prediction.user_id,
+        prediction
+      );
+    }
+  });
 
   let home = 0;
   let draw = 0;
@@ -521,7 +551,7 @@ async function chargerTendances(matchId: string) {
 
   const scores: Record<string, number> = {};
 
-  (data || []).forEach((p: any) => {
+  Array.from(predictionsByUser.values()).forEach((p: any) => {
 
     if (p.pred_home > p.pred_away) home++;
     else if (p.pred_home < p.pred_away) away++;
@@ -597,8 +627,56 @@ async function chargerDetailsAujourdhui(
     return;
   }
 
-  const matchIds = prochainsMatchs.map(
-    (match: any) => match.id
+  const apiMatchIds = Array.from(
+    new Set(
+      prochainsMatchs
+        .map((match: any) => match.api_match_id)
+        .filter(Boolean)
+    )
+  );
+
+  const { data: linkedMatches } =
+    apiMatchIds.length > 0
+      ? await supabase
+          .from("matches")
+          .select("id,api_match_id")
+          .in("api_match_id", apiMatchIds)
+      : { data: [] };
+
+  const linkedMatchesByApi = new Map<string, string[]>();
+
+  (linkedMatches || []).forEach((linkedMatch: any) => {
+    const apiMatchId = linkedMatch.api_match_id;
+
+    if (!apiMatchId) return;
+
+    const ids =
+      linkedMatchesByApi.get(apiMatchId) || [];
+
+    ids.push(linkedMatch.id);
+    linkedMatchesByApi.set(apiMatchId, ids);
+  });
+
+  const displayMatchByLinkedMatch =
+    new Map<string, string>();
+
+  prochainsMatchs.forEach((match: any) => {
+    const linkedIds =
+      match.api_match_id
+        ? linkedMatchesByApi.get(match.api_match_id)
+        : null;
+
+    const ids = linkedIds?.length
+      ? linkedIds
+      : [match.id];
+
+    ids.forEach((linkedId: string) => {
+      displayMatchByLinkedMatch.set(linkedId, match.id);
+    });
+  });
+
+  const matchIds = Array.from(
+    new Set(displayMatchByLinkedMatch.keys())
   );
 
   const equipes = Array.from(
@@ -629,9 +707,10 @@ async function chargerDetailsAujourdhui(
     ]);
 
   const tendancesMap: any = {};
+  const countedUsersByMatch = new Set<string>();
 
-  for (const matchId of matchIds) {
-    tendancesMap[matchId] = {
+  for (const match of prochainsMatchs) {
+    tendancesMap[match.id] = {
       home: 0,
       draw: 0,
       away: 0,
@@ -645,10 +724,23 @@ async function chargerDetailsAujourdhui(
   const scoresParMatch: any = {};
 
   (pronos || []).forEach((p: any) => {
+    const displayMatchId =
+      displayMatchByLinkedMatch.get(p.match_id) ||
+      p.match_id;
+
     const tendance =
-      tendancesMap[p.match_id];
+      tendancesMap[displayMatchId];
 
     if (!tendance) return;
+
+    const countedKey =
+      `${displayMatchId}:${p.user_id}`;
+
+    if (countedUsersByMatch.has(countedKey)) {
+      return;
+    }
+
+    countedUsersByMatch.add(countedKey);
 
     if (p.pred_home > p.pred_away) tendance.home++;
     else if (p.pred_home < p.pred_away) tendance.away++;
@@ -657,11 +749,11 @@ async function chargerDetailsAujourdhui(
     const score =
       `${p.pred_home}-${p.pred_away}`;
 
-    scoresParMatch[p.match_id] =
-      scoresParMatch[p.match_id] || {};
+    scoresParMatch[displayMatchId] =
+      scoresParMatch[displayMatchId] || {};
 
-    scoresParMatch[p.match_id][score] =
-      (scoresParMatch[p.match_id][score] || 0) + 1;
+    scoresParMatch[displayMatchId][score] =
+      (scoresParMatch[displayMatchId][score] || 0) + 1;
   });
 
   Object.entries(tendancesMap).forEach(
