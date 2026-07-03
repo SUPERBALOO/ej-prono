@@ -124,14 +124,14 @@ export default function DashboardPage() {
           </Link>
 
           <Link 
-          href="/concours"
+          href="/pronostics"
             className="p-3 rounded hover:bg-[#42546B]"
           >
             📝 Pronostics
           </Link>
 
           <Link 
-          href="/concours"
+          href="/classement"
             className="p-3 rounded hover:bg-[#42546B]"
           >
             🥇 Classement
