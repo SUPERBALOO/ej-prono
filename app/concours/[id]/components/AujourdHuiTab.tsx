@@ -162,10 +162,22 @@ export default function AujourdHuiTab({
             key={match.id}
             className="bg-[#42546B] rounded-2xl p-3"
           >
-            {match.concours_nom && (
-              <div className="mb-3 inline-flex rounded-full bg-[#1E3047] px-3 py-1 text-sm font-semibold text-[#D8AA82]">
-                {match.concours_nom}
+            {match.linked_concours_noms?.length > 1 ? (
+              <div className="mb-3 rounded-xl bg-[#1E3047] px-3 py-2 text-sm">
+                <div className="font-bold text-[#D8AA82]">
+                  Compte pour{" "}
+                  {match.linked_concours_noms.length} concours
+                </div>
+                <div className="mt-1 text-xs text-gray-200">
+                  {match.linked_concours_noms.join(" + ")}
+                </div>
               </div>
+            ) : (
+              match.concours_nom && (
+                <div className="mb-3 inline-flex rounded-full bg-[#1E3047] px-3 py-1 text-sm font-semibold text-[#D8AA82]">
+                  {match.concours_nom}
+                </div>
+              )
             )}
 
             {/* HEADER */}

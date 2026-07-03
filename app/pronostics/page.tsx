@@ -26,6 +26,54 @@ function getMatchsAutourAujourdhui(matchsData: any[]) {
   });
 }
 
+function grouperMatchsMultiConcours(matchsData: any[]) {
+  const groupes = new Map<string, any>();
+
+  matchsData.forEach((match: any) => {
+    const key = match.api_match_id
+      ? `api:${match.api_match_id}`
+      : `match:${match.id}`;
+
+    const existing = groupes.get(key);
+
+    if (!existing) {
+      groupes.set(key, {
+        ...match,
+        linked_match_ids: [match.id],
+        linked_concours_noms: match.concours_nom
+          ? [match.concours_nom]
+          : [],
+      });
+      return;
+    }
+
+    existing.linked_match_ids = Array.from(
+      new Set([
+        ...(existing.linked_match_ids || [existing.id]),
+        match.id,
+      ])
+    );
+
+    existing.linked_concours_noms = Array.from(
+      new Set([
+        ...(existing.linked_concours_noms || []),
+        ...(match.concours_nom ? [match.concours_nom] : []),
+      ])
+    );
+
+    existing.concours_nom =
+      existing.linked_concours_noms.join(" + ");
+  });
+
+  return Array.from(groupes.values()).map((match: any) => ({
+    ...match,
+    concours_nom:
+      match.linked_concours_noms?.length > 1
+        ? `Compte pour ${match.linked_concours_noms.length} concours : ${match.linked_concours_noms.join(" + ")}`
+        : match.concours_nom,
+  }));
+}
+
 export default function PronosticsPage() {
   const router = useRouter();
 
@@ -101,9 +149,28 @@ export default function PronosticsPage() {
       return;
     }
 
-    const matchIds = prochainsMatchs.map(
-      (match: any) => match.id
+    const matchIds = Array.from(
+      new Set(
+        prochainsMatchs.flatMap((match: any) =>
+          match.linked_match_ids?.length
+            ? match.linked_match_ids
+            : [match.id]
+        )
+      )
     );
+
+    const displayMatchByLinkedMatch = new Map<string, string>();
+
+    prochainsMatchs.forEach((match: any) => {
+      const linkedIds =
+        match.linked_match_ids?.length
+          ? match.linked_match_ids
+          : [match.id];
+
+      linkedIds.forEach((linkedId: string) => {
+        displayMatchByLinkedMatch.set(linkedId, match.id);
+      });
+    });
 
     const equipes = Array.from(
       new Set(
@@ -131,8 +198,8 @@ export default function PronosticsPage() {
     const tendancesMap: any = {};
     const scoresParMatch: any = {};
 
-    for (const matchId of matchIds) {
-      tendancesMap[matchId] = {
+    for (const match of prochainsMatchs) {
+      tendancesMap[match.id] = {
         home: 0,
         draw: 0,
         away: 0,
@@ -141,8 +208,12 @@ export default function PronosticsPage() {
     }
 
     (pronos || []).forEach((prediction: any) => {
-      const tendance =
-        tendancesMap[prediction.match_id];
+      const displayMatchId =
+        displayMatchByLinkedMatch.get(
+          prediction.match_id
+        ) || prediction.match_id;
+
+      const tendance = tendancesMap[displayMatchId];
 
       if (!tendance) return;
 
@@ -153,11 +224,11 @@ export default function PronosticsPage() {
       const score =
         `${prediction.pred_home}-${prediction.pred_away}`;
 
-      scoresParMatch[prediction.match_id] =
-        scoresParMatch[prediction.match_id] || {};
+      scoresParMatch[displayMatchId] =
+        scoresParMatch[displayMatchId] || {};
 
-      scoresParMatch[prediction.match_id][score] =
-        (scoresParMatch[prediction.match_id][score] || 0) + 1;
+      scoresParMatch[displayMatchId][score] =
+        (scoresParMatch[displayMatchId][score] || 0) + 1;
     });
 
     Object.entries(tendancesMap).forEach(
@@ -241,7 +312,7 @@ export default function PronosticsPage() {
 
       if (matchesError) throw matchesError;
 
-      const prochainsMatchs =
+      const prochainsMatchsBruts =
         getMatchsAutourAujourdhui(
           (allMatches || []).map((match: any) => ({
             ...match,
@@ -250,7 +321,26 @@ export default function PronosticsPage() {
           }))
         );
 
+      const prochainsMatchs =
+        grouperMatchsMultiConcours(prochainsMatchsBruts);
+
       setMatchs48h(prochainsMatchs);
+
+      const displayMatchByLinkedMatch = new Map<
+        string,
+        string
+      >();
+
+      prochainsMatchs.forEach((match: any) => {
+        const linkedIds =
+          match.linked_match_ids?.length
+            ? match.linked_match_ids
+            : [match.id];
+
+        linkedIds.forEach((linkedId: string) => {
+          displayMatchByLinkedMatch.set(linkedId, match.id);
+        });
+      });
 
       const savedMap: any = {};
       const predictionsMap: any = {};
@@ -273,6 +363,11 @@ export default function PronosticsPage() {
 
           (predictionsResult.predictions || []).forEach(
             (prediction: any) => {
+              const displayMatchId =
+                displayMatchByLinkedMatch.get(
+                  prediction.match_id
+                );
+
               savedMap[prediction.match_id] = true;
               predictionsMap[prediction.match_id] = {
                 pred_home: prediction.pred_home,
@@ -281,6 +376,17 @@ export default function PronosticsPage() {
                   prediction.locked_odds ??
                   prediction.prediction_odds,
               };
+
+              if (displayMatchId) {
+                savedMap[displayMatchId] = true;
+                predictionsMap[displayMatchId] = {
+                  pred_home: prediction.pred_home,
+                  pred_away: prediction.pred_away,
+                  locked_odds:
+                    prediction.locked_odds ??
+                    prediction.prediction_odds,
+                };
+              }
             }
           );
 
@@ -298,10 +404,24 @@ export default function PronosticsPage() {
             await pointsResponse.json();
 
           (pointsResult.points || []).forEach((row: any) => {
+            const displayMatchId =
+              displayMatchByLinkedMatch.get(row.match_id);
+
             pointsMap[row.match_id] = {
               points: row.points,
               exact_score: row.exact_score,
             };
+
+            if (displayMatchId) {
+              pointsMap[displayMatchId] = {
+                points:
+                  (pointsMap[displayMatchId]?.points || 0) +
+                  (row.points || 0),
+                exact_score:
+                  pointsMap[displayMatchId]?.exact_score ||
+                  row.exact_score,
+              };
+            }
           });
         }
       }
@@ -438,19 +558,7 @@ export default function PronosticsPage() {
       return next;
     });
 
-    const tendanceMatchIds = updatedMatches.length
-      ? updatedMatches.map((match: any) => match.id)
-      : [matchId];
-
-    for (const tendanceMatchId of tendanceMatchIds) {
-      const nouvelleTendance =
-        await chargerTendances(tendanceMatchId);
-
-      setTendances((prev: any) => ({
-        ...prev,
-        [tendanceMatchId]: nouvelleTendance,
-      }));
-    }
+    await chargerDetailsAujourdhui(matchs48h);
   }
 
   return (
