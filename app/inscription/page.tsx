@@ -5,21 +5,61 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
 
+const GROUP_COMPANIES = [
+  "Sadrin Rapin",
+  "Le Batimans",
+  "DLB Couverture",
+  "Préfa Béton 72",
+  "Bâti Propreté",
+  "Divaré",
+  "EPSI Electricité",
+  "LBM ENERGIES",
+  "BJC",
+  "HANNY",
+  "Groupe EJ",
+];
+
+const OTHER_COMPANY_VALUE = "__OTHER__";
+
 export default function Inscription() {
   const router = useRouter();
 
   const [pseudo, setPseudo] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [companyChoice, setCompanyChoice] = useState("");
+  const [customCompany, setCustomCompany] = useState("");
   const [email, setEmail] = useState("");
   const [motdepasse, setMotdepasse] = useState("");
   const [message, setMessage] = useState("");
 
   const inscrire = async () => {
+    const company =
+      companyChoice === OTHER_COMPANY_VALUE
+        ? customCompany.trim()
+        : companyChoice;
+
+    if (
+      !pseudo.trim() ||
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !company ||
+      !email.trim() ||
+      !motdepasse
+    ) {
+      setMessage("Tous les champs sont obligatoires.");
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password: motdepasse,
       options: {
         data: {
-          pseudo,
+          pseudo: pseudo.trim(),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          company,
         },
       },
     });
@@ -27,6 +67,18 @@ export default function Inscription() {
     if (error) {
       setMessage(error.message);
       return;
+    }
+
+    if (data.user) {
+      await supabase
+        .from("profiles")
+        .update({
+          pseudo: pseudo.trim(),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          company,
+        })
+        .eq("id", data.user.id);
     }
 
     setMessage("Compte cree ! Connexion en cours...");
@@ -59,7 +111,60 @@ export default function Inscription() {
             value={pseudo}
             onChange={(e) => setPseudo(e.target.value)}
             className="w-full p-3 rounded border border-[#C19A7A] text-black"
+            required
           />
+
+          <input
+            type="text"
+            placeholder="Prenom"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            className="w-full p-3 rounded border border-[#C19A7A] text-black"
+            required
+          />
+
+          <input
+            type="text"
+            placeholder="Nom"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            className="w-full p-3 rounded border border-[#C19A7A] text-black"
+            required
+          />
+
+          <select
+            value={companyChoice}
+            onChange={(e) => {
+              setCompanyChoice(e.target.value);
+
+              if (e.target.value !== OTHER_COMPANY_VALUE) {
+                setCustomCompany("");
+              }
+            }}
+            className="w-full p-3 rounded border border-[#C19A7A] text-black"
+            required
+          >
+            <option value="">Selectionner une entreprise</option>
+
+            {GROUP_COMPANIES.map((companyName) => (
+              <option key={companyName} value={companyName}>
+                {companyName}
+              </option>
+            ))}
+
+            <option value={OTHER_COMPANY_VALUE}>Autre</option>
+          </select>
+
+          {companyChoice === OTHER_COMPANY_VALUE && (
+            <input
+              type="text"
+              placeholder="Nom de l'entreprise"
+              value={customCompany}
+              onChange={(e) => setCustomCompany(e.target.value)}
+              className="w-full p-3 rounded border border-[#C19A7A] text-black"
+              required
+            />
+          )}
 
           <input
             type="email"
@@ -67,6 +172,7 @@ export default function Inscription() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full p-3 rounded border border-[#C19A7A] text-black"
+            required
           />
 
           <input
@@ -75,7 +181,9 @@ export default function Inscription() {
             value={motdepasse}
             onChange={(e) => setMotdepasse(e.target.value)}
             className="w-full p-3 rounded border border-[#C19A7A] text-black"
+            required
           />
+
 
           <button
             onClick={inscrire}

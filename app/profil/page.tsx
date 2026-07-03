@@ -105,13 +105,23 @@ export default function ProfilPage() {
         ? customCompany.trim()
         : companyChoice;
 
+    if (
+      !pseudo.trim() ||
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !company
+    ) {
+      setMessage("Pseudo, prenom, nom et entreprise sont obligatoires.");
+      return;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
-        pseudo,
-        first_name: firstName || null,
-        last_name: lastName || null,
-        company: company || null,
+        pseudo: pseudo.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        company,
         avatar_url: avatarUrl || null,
       })
       .eq("id", user.id);
@@ -214,6 +224,7 @@ export default function ProfilPage() {
                   onChange={(e) =>
                     setPseudo(e.target.value)
                   }
+                  required
                   className="
                     w-full
                     p-3
@@ -236,6 +247,7 @@ export default function ProfilPage() {
                     onChange={(e) =>
                       setFirstName(e.target.value)
                     }
+                    required
                     className="
                       w-full
                       p-3
@@ -257,6 +269,7 @@ export default function ProfilPage() {
                     onChange={(e) =>
                       setLastName(e.target.value)
                     }
+                    required
                     className="
                       w-full
                       p-3
@@ -284,6 +297,7 @@ export default function ProfilPage() {
                       setCustomCompany("");
                     }
                   }}
+                  required
                   className="
                     w-full
                     p-3
@@ -317,6 +331,7 @@ export default function ProfilPage() {
                     onChange={(e) =>
                       setCustomCompany(e.target.value)
                     }
+                    required
                     className="
                       mt-3
                       w-full
