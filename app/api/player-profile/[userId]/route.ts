@@ -17,6 +17,35 @@ function getErrorMessage(error: unknown) {
   return "Erreur inconnue";
 }
 
+async function getAdminInfo(userId: string) {
+  const [
+    authUserResult,
+    pushResult,
+    installResult,
+  ] = await Promise.all([
+    supabase.auth.admin.getUserById(userId),
+    supabase
+      .from("push_subscriptions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("enabled", true)
+      .limit(1),
+    supabase
+      .from("app_install_events")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1),
+  ]);
+
+  return {
+    email: authUserResult.data.user?.email || null,
+    pushEnabled:
+      !pushResult.error && Boolean(pushResult.data?.length),
+    appInstalled:
+      !installResult.error && Boolean(installResult.data?.length),
+  };
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
@@ -200,6 +229,10 @@ export async function GET(
         .slice(0, 5);
     }
 
+    const adminInfo = viewerProfile?.is_admin
+      ? await getAdminInfo(userId)
+      : null;
+
     return NextResponse.json({
       profile: {
         id: profile.id,
@@ -210,6 +243,7 @@ export async function GET(
         company: profile.company || null,
       },
       recentPredictions,
+      adminInfo,
     });
   } catch (error: unknown) {
     const message = getErrorMessage(error);

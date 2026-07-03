@@ -33,6 +33,11 @@ type PlayerProfileResponse = {
     id: string;
   };
   recentPredictions: RecentPrediction[];
+  adminInfo?: {
+    email?: string | null;
+    appInstalled: boolean;
+    pushEnabled: boolean;
+  } | null;
 };
 
 export default function PlayerProfileModal({
@@ -178,7 +183,51 @@ export default function PlayerProfileModal({
         )}
 
         {!loading && !error && (
-          <div>
+          <div className="space-y-5">
+            {details?.adminInfo && (
+              <div className="rounded-xl bg-[#1E3047] p-4">
+                <h4 className="mb-3 font-bold text-[#D8AA82]">
+                  Infos admin
+                </h4>
+
+                <div className="grid gap-2 text-sm text-gray-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Mail</span>
+                    <span className="text-right font-semibold text-white">
+                      {details.adminInfo.email || "Non renseigne"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Application installee</span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-bold ${
+                        details.adminInfo.appInstalled
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-600 text-gray-100"
+                      }`}
+                    >
+                      {details.adminInfo.appInstalled ? "Oui" : "Non"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Notifications validees</span>
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-bold ${
+                        details.adminInfo.pushEnabled
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-600 text-gray-100"
+                      }`}
+                    >
+                      {details.adminInfo.pushEnabled ? "Oui" : "Non"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div>
             <h4 className="mb-3 font-bold text-[#D8AA82]">
               Derniers pronostics visibles
             </h4>
@@ -255,6 +304,7 @@ export default function PlayerProfileModal({
                 Aucun pronostic visible pour le moment.
               </p>
             )}
+            </div>
           </div>
         )}
       </div>

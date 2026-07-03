@@ -297,7 +297,11 @@ if (!isAdminUser) {
       points,
       created_at,
       profiles:joueur_id (
-        pseudo
+        pseudo,
+        avatar_url,
+        first_name,
+        last_name,
+        company
       )
     `)
     .eq("concours_id", concoursId);
@@ -995,6 +999,22 @@ function renderPlayerAvatar(joueur: any) {
       )}
     </div>
   );
+}
+
+function getParticipantPlayer(participant: any) {
+  const profile = Array.isArray(participant.profiles)
+    ? participant.profiles[0]
+    : participant.profiles;
+  const pseudo = profile?.pseudo || "Joueur";
+
+  return {
+    user_id: participant.joueur_id,
+    pseudo,
+    avatar_url: profile?.avatar_url || null,
+    first_name: profile?.first_name || null,
+    last_name: profile?.last_name || null,
+    company: profile?.company || null,
+  };
 }
 
 function renderProgressIcon(index: number) {
@@ -2018,7 +2038,16 @@ className="
             className="bg-[#42546B] rounded-xl p-4 flex flex-col md:flex-row gap-4 md:justify-between md:items-center"
           >
 
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedPlayer(
+                  getParticipantPlayer(participant)
+                )
+              }
+              className="flex items-center gap-3 text-left hover:text-[#D8AA82]"
+            >
+  {renderPlayerAvatar(getParticipantPlayer(participant))}
   <div className="w-10 h-10 rounded-full bg-[#D8AA82] flex items-center justify-center font-bold text-[#1E3047]">
   {index === 0
     ? "🥇"
@@ -2032,7 +2061,7 @@ className="
   <div>
     <div className="flex items-center gap-2">
       <span className="font-semibold text-white">
-        {participant.profiles?.pseudo}
+        {getParticipantPlayer(participant).pseudo}
       </span>
         
       {participant.joueur_id === concours.createur && (
@@ -2047,7 +2076,7 @@ className="
       {new Date(participant.created_at).toLocaleDateString("fr-FR")}
     </p>
   </div>
-</div>
+</button>
 
             <div className="text-right">
               <p className="text-[#D8AA82] font-bold text-xl">
