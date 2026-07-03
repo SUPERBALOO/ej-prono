@@ -199,6 +199,27 @@ export default function PlayerProfileModal({
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
+                    <span>Nom</span>
+                    <span className="text-right font-semibold text-white">
+                      {profile.last_name || "Non renseigne"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Prenom</span>
+                    <span className="text-right font-semibold text-white">
+                      {profile.first_name || "Non renseigne"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span>Entreprise</span>
+                    <span className="text-right font-semibold text-white">
+                      {profile.company || "Non renseigne"}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
                     <span>Application installee</span>
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-bold ${
