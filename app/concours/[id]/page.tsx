@@ -1017,6 +1017,29 @@ function getParticipantPlayer(participant: any) {
   };
 }
 
+function getParticipantScore(
+  participant: any,
+  classementData: any[]
+) {
+  const rankedPlayer = classementData.find(
+    (joueur: any) =>
+      joueur.user_id === participant.joueur_id
+  );
+
+  return rankedPlayer?.points ?? participant.points ?? 0;
+}
+
+function getSortedParticipants(
+  participantsData: any[],
+  classementData: any[]
+) {
+  return [...participantsData].sort(
+    (a: any, b: any) =>
+      getParticipantScore(b, classementData) -
+      getParticipantScore(a, classementData)
+  );
+}
+
 function renderProgressIcon(index: number) {
   if (index === 0) return "🏆";
   if (index === 1) return "🥈";
@@ -2031,7 +2054,7 @@ className="
     ) : (
       <div className="space-y-4">
 
-        {participants.map((participant) => (
+        {getSortedParticipants(participants, classement).map((participant) => (
 
           <div
             key={participant.id}
@@ -2071,7 +2094,7 @@ className="
 
             <div className="text-right">
               <p className="text-[#D8AA82] font-bold text-xl">
-                {participant.points}
+                {getParticipantScore(participant, classement)}
               </p>
 
               <p className="text-sm text-gray-400">

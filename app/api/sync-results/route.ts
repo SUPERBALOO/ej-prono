@@ -52,15 +52,17 @@ export async function GET(req: NextRequest) {
     const fullSync =
       req.nextUrl.searchParams.get("full") === "1";
 
+    const importMissingParam =
+      req.nextUrl.searchParams.get("importMissing");
+
     const importMissing =
-      req.nextUrl.searchParams.get("importMissing") ===
-      "1";
+      importMissingParam !== "0" && !apiMatchId && !matchId;
 
     const forceImport =
       req.nextUrl.searchParams.get("forceImport") ===
       "1";
 
-    let autoImport = {
+    const autoImport = {
       enabled: importMissing,
       attempted: 0,
       imported: 0,

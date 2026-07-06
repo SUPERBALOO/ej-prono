@@ -7,6 +7,7 @@ import Image from "next/image";
 import { supabase } from "../../lib/supabase/client";
 import AdminPushPanel from "@/components/AdminPushPanel";
 import InstallAppButton from "@/components/InstallAppButton";
+import PushReminderButton from "@/components/PushReminderButton";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function DashboardPage() {
     chargerProfil();
 
     // Synchronisation automatique des résultats
-    fetch("/api/sync-results").catch((err) =>
+    fetch("/api/sync-results?importMissing=1").catch((err) =>
       console.error("Erreur sync-results :", err)
     );
   }, []);
@@ -175,6 +176,22 @@ export default function DashboardPage() {
           <p className="text-[#C7A27F] mb-8">
             Bienvenue sur EJ Prono
           </p>
+
+          <div className="mb-8 rounded-xl bg-[#314357] p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-2xl font-bold">
+                  Rappels de pronostics
+                </h3>
+                <p className="mt-2 text-gray-300">
+                  Activez les notifications sur ce telephone pour recevoir les
+                  rappels avant les matchs.
+                </p>
+              </div>
+
+              <PushReminderButton />
+            </div>
+          </div>
 
           {isAdmin && (
             <div className="bg-[#314357] p-6 rounded-xl mb-8">
