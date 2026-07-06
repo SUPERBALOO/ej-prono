@@ -1388,7 +1388,7 @@ className="
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
-                    onClick={() => setOnglet("pronostics")}
+                    onClick={() => setOnglet("aujourdhui")}
                     className="bg-[#1E3047] text-white px-4 py-3 rounded-lg font-bold"
                   >
                     Faire mes pronos
