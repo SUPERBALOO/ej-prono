@@ -116,13 +116,6 @@ export async function GET(req: NextRequest) {
     let synced = 0;
 
     if (missingMatches.length) {
-      const userConcoursIds =
-        await getUserConcoursIds(user.id);
-
-      if (!userConcoursIds.includes(concoursId)) {
-        userConcoursIds.push(concoursId);
-      }
-
       const apiMatchIds = Array.from(
         new Set(
           missingMatches.map(
@@ -135,7 +128,6 @@ export async function GET(req: NextRequest) {
         await supabase
           .from("matches")
           .select("id,api_match_id,concours_id")
-          .in("concours_id", userConcoursIds)
           .in("api_match_id", apiMatchIds);
 
       if (linkedError) {
