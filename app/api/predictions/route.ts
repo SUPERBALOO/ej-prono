@@ -218,7 +218,12 @@ export async function GET(req: NextRequest) {
           synced++;
 
           if (match.status === "finished") {
-            await calculatePoints(match.id);
+            calculatePoints(match.id).catch((error) => {
+              console.error(
+                `Erreur recalcul points apres synchro prono ${match.id}`,
+                error
+              );
+            });
           }
         }
       }
