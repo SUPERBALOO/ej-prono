@@ -34,6 +34,157 @@ async function getUserConcoursIds(userId: string) {
   );
 }
 
+function getEquivalentMatchDateWindow(match: any) {
+  const matchTime = new Date(match.match_date).getTime();
+  const windowMs = 3 * 60 * 60 * 1000;
+
+  return {
+    start: new Date(matchTime - windowMs).toISOString(),
+    end: new Date(matchTime + windowMs).toISOString(),
+  };
+}
+
+async function getEquivalentMatches(
+  match: any,
+  concoursIds?: string[]
+) {
+  const equivalentMatches = new Map<string, any>();
+
+  if (match.api_match_id) {
+    let query = supabase
+      .from("matches")
+      .select("*")
+      .eq("api_match_id", match.api_match_id);
+
+    if (concoursIds?.length) {
+      query = query.in("concours_id", concoursIds);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    (data || []).forEach((linkedMatch: any) => {
+      equivalentMatches.set(linkedMatch.id, linkedMatch);
+    });
+  }
+
+  const { start, end } =
+    getEquivalentMatchDateWindow(match);
+
+  let sameFixtureQuery = supabase
+    .from("matches")
+    .select("*")
+    .eq("home_team", match.home_team)
+    .eq("away_team", match.away_team)
+    .gte("match_date", start)
+    .lte("match_date", end);
+
+  if (concoursIds?.length) {
+    sameFixtureQuery =
+      sameFixtureQuery.in("concours_id", concoursIds);
+  }
+
+  const { data: sameFixtureMatches, error } =
+    await sameFixtureQuery;
+
+  if (error) {
+    throw error;
+  }
+
+  (sameFixtureMatches || []).forEach(
+    (linkedMatch: any) => {
+      equivalentMatches.set(linkedMatch.id, linkedMatch);
+    }
+  );
+
+  return Array.from(equivalentMatches.values());
+}
+
+async function findEquivalentPrediction(
+  userId: string,
+  match: any
+) {
+  const equivalentMatches =
+    await getEquivalentMatches(match);
+
+  const equivalentMatchIds = equivalentMatches
+    .map((equivalentMatch: any) => equivalentMatch.id)
+    .filter((id: string) => id !== match.id);
+
+  if (!equivalentMatchIds.length) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("predictions")
+    .select("*")
+    .eq("user_id", userId)
+    .in("match_id", equivalentMatchIds)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.[0] || null;
+}
+
+async function syncPredictionToMatch({
+  userId,
+  match,
+  sourcePrediction,
+}: {
+  userId: string;
+  match: any;
+  sourcePrediction: any;
+}) {
+  const predictionOdds =
+    sourcePrediction.locked_odds ??
+    sourcePrediction.prediction_odds ??
+    getPredictionOdds(
+      match,
+      sourcePrediction.pred_home,
+      sourcePrediction.pred_away
+    );
+
+  const predictionToInsert = {
+    user_id: userId,
+    match_id: match.id,
+    pred_home: sourcePrediction.pred_home,
+    pred_away: sourcePrediction.pred_away,
+    prediction_odds: predictionOdds,
+    locked_odds: predictionOdds,
+  };
+
+  const { data: syncedPrediction, error } =
+    await supabase
+      .from("predictions")
+      .upsert(predictionToInsert, {
+        onConflict: "user_id,match_id",
+      })
+      .select("*")
+      .single();
+
+  if (error) {
+    throw error;
+  }
+
+  if (match.status === "finished") {
+    calculatePoints(match.id).catch((error) => {
+      console.error(
+        `Erreur recalcul points apres synchro prono ${match.id}`,
+        error
+      );
+    });
+  }
+
+  return syncedPrediction || predictionToInsert;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const token = req.headers
@@ -108,9 +259,7 @@ export async function GET(req: NextRequest) {
     );
 
     const missingMatches = (matches || []).filter(
-      (match: any) =>
-        match.api_match_id &&
-        !predictionsByMatch.has(match.id)
+      (match: any) => !predictionsByMatch.has(match.id)
     );
 
     let synced = 0;
@@ -118,17 +267,19 @@ export async function GET(req: NextRequest) {
     if (missingMatches.length) {
       const apiMatchIds = Array.from(
         new Set(
-          missingMatches.map(
-            (match: any) => match.api_match_id
-          )
+          missingMatches
+            .map((match: any) => match.api_match_id)
+            .filter(Boolean)
         )
       );
 
       const { data: linkedMatches, error: linkedError } =
-        await supabase
-          .from("matches")
-          .select("id,api_match_id,concours_id")
-          .in("api_match_id", apiMatchIds);
+        apiMatchIds.length
+          ? await supabase
+              .from("matches")
+              .select("id,api_match_id,concours_id")
+              .in("api_match_id", apiMatchIds)
+          : { data: [], error: null };
 
       if (linkedError) {
         throw linkedError;
@@ -137,95 +288,62 @@ export async function GET(req: NextRequest) {
       const linkedMatchIds =
         linkedMatches?.map((match: any) => match.id) || [];
 
-      if (linkedMatchIds.length) {
-        const { data: linkedPredictions, error: linkedPredictionsError } =
-          await supabase
-            .from("predictions")
-            .select("*")
-            .eq("user_id", user.id)
-            .in("match_id", linkedMatchIds);
+      const { data: linkedPredictions, error: linkedPredictionsError } =
+        linkedMatchIds.length
+          ? await supabase
+              .from("predictions")
+              .select("*")
+              .eq("user_id", user.id)
+              .in("match_id", linkedMatchIds)
+          : { data: [], error: null };
 
-        if (linkedPredictionsError) {
-          throw linkedPredictionsError;
-        }
+      if (linkedPredictionsError) {
+        throw linkedPredictionsError;
+      }
 
-        const apiByLinkedMatch = new Map(
-          (linkedMatches || []).map((match: any) => [
-            match.id,
-            match.api_match_id,
-          ])
+      const apiByLinkedMatch = new Map(
+        (linkedMatches || []).map((match: any) => [
+          match.id,
+          match.api_match_id,
+        ])
+      );
+
+      const predictionByApi = new Map();
+
+      (linkedPredictions || []).forEach((prediction: any) => {
+        const apiMatchId = apiByLinkedMatch.get(
+          prediction.match_id
         );
 
-        const predictionByApi = new Map();
-
-        (linkedPredictions || []).forEach((prediction: any) => {
-          const apiMatchId = apiByLinkedMatch.get(
-            prediction.match_id
-          );
-
-          if (
-            apiMatchId &&
-            !predictionByApi.has(apiMatchId)
-          ) {
-            predictionByApi.set(apiMatchId, prediction);
-          }
-        });
-
-        for (const match of missingMatches) {
-          const sourcePrediction = predictionByApi.get(
-            match.api_match_id
-          );
-
-          if (!sourcePrediction) {
-            continue;
-          }
-
-          const predictionOdds =
-            sourcePrediction.locked_odds ??
-            sourcePrediction.prediction_odds ??
-            getPredictionOdds(
-              match,
-              sourcePrediction.pred_home,
-              sourcePrediction.pred_away
-            );
-
-          const predictionToInsert = {
-            user_id: user.id,
-            match_id: match.id,
-            pred_home: sourcePrediction.pred_home,
-            pred_away: sourcePrediction.pred_away,
-            prediction_odds: predictionOdds,
-            locked_odds: predictionOdds,
-          };
-
-          const { data: syncedPrediction, error: syncError } =
-            await supabase
-              .from("predictions")
-              .upsert(predictionToInsert, {
-                onConflict: "user_id,match_id",
-              })
-              .select("*")
-              .single();
-
-          if (syncError) {
-            throw syncError;
-          }
-
-          predictionsByMatch.set(
-            match.id,
-            syncedPrediction || predictionToInsert
-          );
-          synced++;
-
-          if (match.status === "finished") {
-            calculatePoints(match.id).catch((error) => {
-              console.error(
-                `Erreur recalcul points apres synchro prono ${match.id}`,
-                error
-              );
-            });
-          }
+        if (
+          apiMatchId &&
+          !predictionByApi.has(apiMatchId)
+        ) {
+          predictionByApi.set(apiMatchId, prediction);
         }
+      });
+
+      for (const match of missingMatches) {
+        const sourcePrediction =
+          predictionByApi.get(match.api_match_id) ||
+          (await findEquivalentPrediction(user.id, match));
+
+        if (!sourcePrediction) {
+          continue;
+        }
+
+        const syncedPrediction =
+          await syncPredictionToMatch({
+            userId: user.id,
+            match,
+            sourcePrediction,
+          });
+
+        predictionsByMatch.set(
+          match.id,
+          syncedPrediction
+        );
+        synced++;
       }
     }
 
@@ -276,24 +394,12 @@ export async function POST(req: NextRequest) {
       userConcoursIds.push(match.concours_id);
     }
 
-    let matchesToSave = [match];
+    const equivalentMatches =
+      await getEquivalentMatches(match, userConcoursIds);
 
-    if (match.api_match_id) {
-      const { data: linkedMatches, error: linkedMatchesError } =
-        await supabase
-          .from("matches")
-          .select("*")
-          .eq("api_match_id", match.api_match_id)
-          .in("concours_id", userConcoursIds);
-
-      if (linkedMatchesError) {
-        throw linkedMatchesError;
-      }
-
-      matchesToSave = linkedMatches?.length
-        ? linkedMatches
-        : [match];
-    }
+    const matchesToSave = equivalentMatches.length
+      ? equivalentMatches
+      : [match];
 
     const origin = req.nextUrl.origin;
 
