@@ -245,7 +245,12 @@ export async function GET(req: NextRequest) {
     if (!token) {
       return NextResponse.json(
         { error: "Non autorise" },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        }
       );
     }
 
@@ -255,7 +260,12 @@ export async function GET(req: NextRequest) {
     if (!concoursId) {
       return NextResponse.json(
         { error: "concoursId manquant" },
-        { status: 400 }
+        {
+          status: 400,
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        }
       );
     }
 
@@ -267,7 +277,12 @@ export async function GET(req: NextRequest) {
     if (authError || !user) {
       return NextResponse.json(
         { error: "Session invalide" },
-        { status: 401 }
+        {
+          status: 401,
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        }
       );
     }
 
@@ -288,6 +303,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         predictions: [],
         synced: 0,
+      }, {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
       });
     }
 
@@ -398,19 +417,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      predictions: Array.from(
-        predictionsByMatch.values()
-      ),
-      synced,
-    });
+    return NextResponse.json(
+      {
+        predictions: Array.from(
+          predictionsByMatch.values()
+        ),
+        synced,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    );
   } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
         error: error.message,
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 }

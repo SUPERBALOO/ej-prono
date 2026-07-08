@@ -145,8 +145,9 @@ let userPronos: any[] = [];
 if (session?.access_token) {
   try {
     const predictionsResponse = await fetch(
-      `/api/predictions?concoursId=${concoursId}`,
+      `/api/predictions?concoursId=${concoursId}&t=${Date.now()}`,
       {
+        cache: "no-store",
         headers: {
           Authorization:
             `Bearer ${session.access_token}`,
@@ -201,10 +202,26 @@ setUserPointsByMatch(pointsMap);
     (p: any) => concoursMatchIds.has(p.match_id)
   );
 
+  const { data: directConcoursPronos } = await supabase
+    .from("predictions")
+    .select("*")
+    .eq("user_id", user.id)
+    .in("match_id", Array.from(concoursMatchIds));
+
+  const pronosByMatch = new Map<string, any>();
+
+  concoursPronos.forEach((p: any) => {
+    pronosByMatch.set(p.match_id, p);
+  });
+
+  (directConcoursPronos || []).forEach((p: any) => {
+    pronosByMatch.set(p.match_id, p);
+  });
+
   const savedMap: any = {};
   const predictionsMap: any = {};
 
-  concoursPronos.forEach((p: any) => {
+  Array.from(pronosByMatch.values()).forEach((p: any) => {
     savedMap[p.match_id] = true;
 
     predictionsMap[p.match_id] = {
@@ -218,7 +235,7 @@ setUserPointsByMatch(pointsMap);
 
   setSavedPredictions(savedMap);
   setPredictions(predictionsMap);
-  setUserPronosCount(concoursPronos.length);
+  setUserPronosCount(pronosByMatch.size);
 
   const hasMissingOdds =
     (matchsData || []).some(
