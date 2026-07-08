@@ -14,6 +14,34 @@ const stageOrder = [
   "FINAL",
 ];
 
+type ApiTeam = {
+  name?: string | null;
+  crest?: string | null;
+};
+
+type ApiMatch = {
+  id: number | string;
+  stage?: string | null;
+  group?: string | null;
+  status: string;
+  utcDate: string;
+  homeTeam?: ApiTeam | null;
+  awayTeam?: ApiTeam | null;
+  score?: {
+    winner?: string | null;
+    duration?: string | null;
+    fullTime?: Record<string, number | null>;
+    regularTime?: Record<string, number | null>;
+    extraTime?: Record<string, number | null>;
+    penalties?: Record<string, number | null>;
+  } | null;
+};
+
+type ResolvedTeam = {
+  name: string;
+  crest: string | null;
+};
+
 export function getAllowedStages(fromStage?: string | null) {
   if (!fromStage) {
     return null;
@@ -46,6 +74,216 @@ export function inferImportStageFromConcoursName(
   }
 
   return null;
+}
+
+function getScoreValue(
+  score: ApiMatch["score"],
+  period:
+    | "fullTime"
+    | "regularTime"
+    | "extraTime"
+    | "penalties",
+  side: "home" | "away"
+) {
+  return (
+    score?.[period]?.[side] ??
+    score?.[period]?.[
+      side === "home" ? "homeTeam" : "awayTeam"
+    ] ??
+    null
+  );
+}
+
+function scoreWinnerSide(
+  score: ApiMatch["score"]
+): "home" | "away" | null {
+  if (score?.winner === "HOME_TEAM") {
+    return "home";
+  }
+
+  if (score?.winner === "AWAY_TEAM") {
+    return "away";
+  }
+
+  const periods =
+    score?.duration === "PENALTY_SHOOTOUT"
+      ? (["fullTime", "penalties"] as const)
+      : (["fullTime", "regularTime"] as const);
+
+  for (const period of periods) {
+    const home = getScoreValue(score, period, "home");
+    const away = getScoreValue(score, period, "away");
+
+    if (
+      home !== null &&
+      away !== null &&
+      home !== away
+    ) {
+      return home > away ? "home" : "away";
+    }
+  }
+
+  return null;
+}
+
+function getWinnerTeam(match?: ApiMatch) {
+  if (!match) {
+    return null;
+  }
+
+  const side = scoreWinnerSide(match.score);
+
+  if (side === "home" && match.homeTeam?.name) {
+    return {
+      name: match.homeTeam.name,
+      crest: match.homeTeam.crest ?? null,
+    };
+  }
+
+  if (side === "away" && match.awayTeam?.name) {
+    return {
+      name: match.awayTeam.name,
+      crest: match.awayTeam.crest ?? null,
+    };
+  }
+
+  return null;
+}
+
+function getLoserTeam(match?: ApiMatch) {
+  if (!match) {
+    return null;
+  }
+
+  const side = scoreWinnerSide(match.score);
+
+  if (side === "home" && match.awayTeam?.name) {
+    return {
+      name: match.awayTeam.name,
+      crest: match.awayTeam.crest ?? null,
+    };
+  }
+
+  if (side === "away" && match.homeTeam?.name) {
+    return {
+      name: match.homeTeam.name,
+      crest: match.homeTeam.crest ?? null,
+    };
+  }
+
+  return null;
+}
+
+function buildResolvedTeamMap(matches: ApiMatch[]) {
+  const byStage = new Map<string, ApiMatch[]>();
+
+  for (const match of matches) {
+    if (!match.stage) {
+      continue;
+    }
+
+    const stageMatches = byStage.get(match.stage) || [];
+    stageMatches.push(match);
+    byStage.set(match.stage, stageMatches);
+  }
+
+  for (const stageMatches of byStage.values()) {
+    stageMatches.sort(
+      (a, b) =>
+        new Date(a.utcDate).getTime() -
+        new Date(b.utcDate).getTime()
+    );
+  }
+
+  const resolved = new Map<
+    string | number,
+    {
+      home: ResolvedTeam | null;
+      away: ResolvedTeam | null;
+    }
+  >();
+
+  for (const match of matches) {
+    resolved.set(match.id, {
+      home: match.homeTeam?.name
+        ? {
+            name: match.homeTeam.name,
+            crest: match.homeTeam.crest ?? null,
+          }
+        : null,
+      away: match.awayTeam?.name
+        ? {
+            name: match.awayTeam.name,
+            crest: match.awayTeam.crest ?? null,
+          }
+        : null,
+    });
+  }
+
+  const deriveFromPreviousWinners = (
+    stage: string,
+    previousStage: string
+  ) => {
+    const stageMatches = byStage.get(stage) || [];
+    const previousMatches =
+      byStage.get(previousStage) || [];
+
+    stageMatches.forEach((match, index) => {
+      const current = resolved.get(match.id);
+
+      if (!current || (current.home && current.away)) {
+        return;
+      }
+
+      resolved.set(match.id, {
+        home:
+          current.home ||
+          getWinnerTeam(previousMatches[index * 2]),
+        away:
+          current.away ||
+          getWinnerTeam(previousMatches[index * 2 + 1]),
+      });
+    });
+  };
+
+  deriveFromPreviousWinners(
+    "QUARTER_FINALS",
+    "LAST_16"
+  );
+  deriveFromPreviousWinners(
+    "SEMI_FINALS",
+    "QUARTER_FINALS"
+  );
+
+  const semiFinals =
+    byStage.get("SEMI_FINALS") || [];
+
+  for (const finalStage of [
+    "FINAL",
+    "THIRD_PLACE",
+  ]) {
+    const stageMatches = byStage.get(finalStage) || [];
+
+    stageMatches.forEach((match) => {
+      const current = resolved.get(match.id);
+
+      if (!current || (current.home && current.away)) {
+        return;
+      }
+
+      const resolver =
+        finalStage === "FINAL"
+          ? getWinnerTeam
+          : getLoserTeam;
+
+      resolved.set(match.id, {
+        home: current.home || resolver(semiFinals[0]),
+        away: current.away || resolver(semiFinals[1]),
+      });
+    });
+  }
+
+  return resolved;
 }
 
 function getFootballDataStatus(status: string) {
@@ -119,27 +357,36 @@ export async function importCompetitionMatches({
     );
   }
 
-  const validMatches = data.matches
+  const apiMatches = data.matches as ApiMatch[];
+  const resolvedTeams =
+    buildResolvedTeamMap(apiMatches);
+
+  const validMatches = apiMatches
     .filter(
-      (match: any) =>
-        match.homeTeam?.name &&
-        match.awayTeam?.name &&
+      (match) =>
+        resolvedTeams.get(match.id)?.home?.name &&
+        resolvedTeams.get(match.id)?.away?.name &&
         (!allowedStages ||
-          allowedStages.includes(match.stage))
+          (!!match.stage &&
+            allowedStages.includes(match.stage)))
     )
-    .map((match: any) => ({
-      api_match_id: match.id,
-      concours_id: concoursId,
-      home_team: match.homeTeam.name,
-      away_team: match.awayTeam.name,
-      home_logo: match.homeTeam?.crest ?? null,
-      away_logo: match.awayTeam?.crest ?? null,
-      match_date: match.utcDate,
-      phase: match.stage ?? null,
-      groupe: match.group ?? null,
-      status: getFootballDataStatus(match.status),
-      ...getMatchScoreUpdate(match.score),
-    }));
+    .map((match) => {
+      const teams = resolvedTeams.get(match.id)!;
+
+      return {
+        api_match_id: match.id,
+        concours_id: concoursId,
+        home_team: teams.home!.name,
+        away_team: teams.away!.name,
+        home_logo: teams.home!.crest,
+        away_logo: teams.away!.crest,
+        match_date: match.utcDate,
+        phase: match.stage ?? null,
+        groupe: match.group ?? null,
+        status: getFootballDataStatus(match.status),
+        ...getMatchScoreUpdate(match.score),
+      };
+    });
 
   if (!validMatches.length) {
     return {
