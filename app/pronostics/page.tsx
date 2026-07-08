@@ -26,13 +26,34 @@ function getMatchsAutourAujourdhui(matchsData: any[]) {
   });
 }
 
+function getFixtureKey(match: any) {
+  const home = String(match.home_team || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  const away = String(match.away_team || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+  const matchTime = new Date(match.match_date).getTime();
+  const matchDate = Number.isNaN(matchTime)
+    ? ""
+    : new Date(matchTime).toISOString().slice(0, 10);
+
+  return `${home}|${away}|${matchDate}`;
+}
+
 function grouperMatchsMultiConcours(matchsData: any[]) {
   const groupes = new Map<string, any>();
 
   matchsData.forEach((match: any) => {
     const key = match.api_match_id
       ? `api:${match.api_match_id}`
-      : `match:${match.id}`;
+      : `fixture:${getFixtureKey(match)}`;
 
     const existing = groupes.get(key);
 
@@ -361,6 +382,7 @@ export default function PronosticsPage() {
           const predictionsResponse = await fetch(
             `/api/predictions?concoursId=${concoursId}`,
             {
+              cache: "no-store",
               headers: {
                 Authorization:
                   `Bearer ${session.access_token}`,
@@ -517,6 +539,19 @@ export default function PronosticsPage() {
     const savedResultPredictions =
       result.savedPredictions || [];
 
+    const displayMatchByLinkedMatch = new Map<string, string>();
+
+    matchs48h.forEach((match: any) => {
+      const linkedIds =
+        match.linked_match_ids?.length
+          ? match.linked_match_ids
+          : [match.id];
+
+      linkedIds.forEach((linkedId: string) => {
+        displayMatchByLinkedMatch.set(linkedId, match.id);
+      });
+    });
+
     if (savedResultPredictions.length) {
       setPredictions((prev: any) => {
         const next = { ...prev };
@@ -531,6 +566,22 @@ export default function PronosticsPage() {
                 prediction.locked_odds ??
                 prediction.prediction_odds,
             };
+
+            const displayMatchId =
+              displayMatchByLinkedMatch.get(
+                prediction.match_id
+              );
+
+            if (displayMatchId) {
+              next[displayMatchId] = {
+                ...next[displayMatchId],
+                pred_home: prediction.pred_home,
+                pred_away: prediction.pred_away,
+                locked_odds:
+                  prediction.locked_odds ??
+                  prediction.prediction_odds,
+              };
+            }
           }
         );
 
@@ -547,6 +598,15 @@ export default function PronosticsPage() {
       savedResultPredictions.forEach(
         (prediction: any) => {
           next[prediction.match_id] = true;
+
+          const displayMatchId =
+            displayMatchByLinkedMatch.get(
+              prediction.match_id
+            );
+
+          if (displayMatchId) {
+            next[displayMatchId] = true;
+          }
         }
       );
 
@@ -562,6 +622,15 @@ export default function PronosticsPage() {
       savedResultPredictions.forEach(
         (prediction: any) => {
           next[prediction.match_id] = false;
+
+          const displayMatchId =
+            displayMatchByLinkedMatch.get(
+              prediction.match_id
+            );
+
+          if (displayMatchId) {
+            next[displayMatchId] = false;
+          }
         }
       );
 

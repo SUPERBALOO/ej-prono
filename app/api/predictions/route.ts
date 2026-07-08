@@ -36,12 +36,61 @@ async function getUserConcoursIds(userId: string) {
 
 function getEquivalentMatchDateWindow(match: any) {
   const matchTime = new Date(match.match_date).getTime();
-  const windowMs = 3 * 60 * 60 * 1000;
+  const windowMs = 36 * 60 * 60 * 1000;
 
   return {
     start: new Date(matchTime - windowMs).toISOString(),
     end: new Date(matchTime + windowMs).toISOString(),
   };
+}
+
+function normalizeTeamName(team: any) {
+  return String(team || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isEquivalentFixture(
+  sourceMatch: any,
+  candidateMatch: any
+) {
+  const sourceHome = normalizeTeamName(
+    sourceMatch.home_team
+  );
+  const sourceAway = normalizeTeamName(
+    sourceMatch.away_team
+  );
+  const candidateHome = normalizeTeamName(
+    candidateMatch.home_team
+  );
+  const candidateAway = normalizeTeamName(
+    candidateMatch.away_team
+  );
+
+  if (
+    sourceHome !== candidateHome ||
+    sourceAway !== candidateAway
+  ) {
+    return false;
+  }
+
+  const sourceDate = new Date(sourceMatch.match_date);
+  const candidateDate = new Date(candidateMatch.match_date);
+
+  if (
+    Number.isNaN(sourceDate.getTime()) ||
+    Number.isNaN(candidateDate.getTime())
+  ) {
+    return false;
+  }
+
+  const diffMs = Math.abs(
+    sourceDate.getTime() - candidateDate.getTime()
+  );
+
+  return diffMs <= 36 * 60 * 60 * 1000;
 }
 
 async function getEquivalentMatches(
@@ -77,8 +126,6 @@ async function getEquivalentMatches(
   let sameFixtureQuery = supabase
     .from("matches")
     .select("*")
-    .eq("home_team", match.home_team)
-    .eq("away_team", match.away_team)
     .gte("match_date", start)
     .lte("match_date", end);
 
@@ -96,6 +143,10 @@ async function getEquivalentMatches(
 
   (sameFixtureMatches || []).forEach(
     (linkedMatch: any) => {
+      if (!isEquivalentFixture(match, linkedMatch)) {
+        return;
+      }
+
       equivalentMatches.set(linkedMatch.id, linkedMatch);
     }
   );
