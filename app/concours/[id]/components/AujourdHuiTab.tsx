@@ -36,7 +36,23 @@ export default function AujourdHuiTab({
   const [scoreDetails, setScoreDetails] =
     useState<null | {
       score: string;
-      players: string[];
+      players: Array<
+        | string
+        | {
+            player: string;
+            odds?: number | string | null;
+          }
+      >;
+      matchLabel: string;
+    }>(null);
+  const [trendDetails, setTrendDetails] =
+    useState<null | {
+      label: string;
+      players: Array<{
+        player: string;
+        score: string;
+        odds?: number | string | null;
+      }>;
       matchLabel: string;
     }>(null);
 
@@ -425,7 +441,18 @@ export default function AujourdHuiTab({
 
   <div className="space-y-3">
 
-    <div>
+    <button
+      type="button"
+      onClick={() =>
+        setTrendDetails({
+          label: "Victoire domicile",
+          players: tendance?.trendPlayers?.home || [],
+          matchLabel:
+            `${match.home_team} vs ${match.away_team}`,
+        })
+      }
+      className="block w-full rounded-lg p-1 text-left transition hover:bg-[#33465D] focus:outline-none focus:ring-2 focus:ring-[#D8AA82]"
+    >
       <div className="flex justify-between text-sm mb-1">
         <span>🏠 Victoire domicile</span>
         <span>{homePct}%</span>
@@ -437,9 +464,20 @@ export default function AujourdHuiTab({
           style={{ width: `${homePct}%` }}
         />
       </div>
-    </div>
+    </button>
 
-    <div>
+    <button
+      type="button"
+      onClick={() =>
+        setTrendDetails({
+          label: "Match nul",
+          players: tendance?.trendPlayers?.draw || [],
+          matchLabel:
+            `${match.home_team} vs ${match.away_team}`,
+        })
+      }
+      className="block w-full rounded-lg p-1 text-left transition hover:bg-[#33465D] focus:outline-none focus:ring-2 focus:ring-[#D8AA82]"
+    >
       <div className="flex justify-between text-sm mb-1">
         <span>🤝 Match nul</span>
         <span>{drawPct}%</span>
@@ -451,9 +489,20 @@ export default function AujourdHuiTab({
           style={{ width: `${drawPct}%` }}
         />
       </div>
-    </div>
+    </button>
 
-    <div>
+    <button
+      type="button"
+      onClick={() =>
+        setTrendDetails({
+          label: "Victoire exterieur",
+          players: tendance?.trendPlayers?.away || [],
+          matchLabel:
+            `${match.home_team} vs ${match.away_team}`,
+        })
+      }
+      className="block w-full rounded-lg p-1 text-left transition hover:bg-[#33465D] focus:outline-none focus:ring-2 focus:ring-[#D8AA82]"
+    >
       <div className="flex justify-between text-sm mb-1">
         <span>✈️ Victoire extérieur</span>
         <span>{awayPct}%</span>
@@ -465,12 +514,11 @@ export default function AujourdHuiTab({
           style={{ width: `${awayPct}%` }}
         />
       </div>
-    </div>
+    </button>
 
   </div>
 
 </div>
-
  {/* SCORES LES PLUS JOUES */}
 
 <div className="mt-5">
@@ -630,18 +678,101 @@ export default function AujourdHuiTab({
 
           {scoreDetails.players.length > 0 ? (
             <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-              {scoreDetails.players.map((player) => (
+              {scoreDetails.players.map((playerDetail, index) => {
+                const player =
+                  typeof playerDetail === "string"
+                    ? playerDetail
+                    : playerDetail.player;
+
+                const odds =
+                  typeof playerDetail === "string"
+                    ? null
+                    : playerDetail.odds;
+
+                return (
+                  <div
+                    key={`${player}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-[#1E3047] px-4 py-3"
+                  >
+                    <span className="font-semibold">
+                      {player}
+                    </span>
+
+                    {odds && (
+                      <span className="rounded bg-[#D8AA82] px-3 py-1 text-sm font-bold text-[#1E3047]">
+                        Cote {odds}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-[#1E3047] px-4 py-3 text-gray-300">
+              Aucun joueur trouve pour ce score.
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+
+    {trendDetails && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={() => setTrendDetails(null)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl bg-[#42546B] p-5 text-white shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-[#D8AA82]">
+                {trendDetails.matchLabel}
+              </div>
+              <h3 className="mt-1 text-xl font-bold">
+                {trendDetails.label}
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setTrendDetails(null)}
+              className="rounded-lg bg-[#1E3047] px-3 py-2 text-lg font-bold hover:brightness-110"
+              aria-label="Fermer"
+            >
+              x
+            </button>
+          </div>
+
+          {trendDetails.players.length > 0 ? (
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+              {trendDetails.players.map((item, index) => (
                 <div
-                  key={player}
-                  className="rounded-lg bg-[#1E3047] px-4 py-3 font-semibold"
+                  key={`${item.player}-${item.score}-${index}`}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-[#1E3047] px-4 py-3"
                 >
-                  {player}
+                  <span className="font-semibold">
+                    {item.player}
+                  </span>
+
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <span className="rounded bg-[#33465D] px-3 py-1 text-sm font-bold text-white">
+                      {item.score}
+                    </span>
+
+                    {item.odds && (
+                      <span className="rounded bg-[#D8AA82] px-3 py-1 text-sm font-bold text-[#1E3047]">
+                        Cote {item.odds}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
             <div className="rounded-lg bg-[#1E3047] px-4 py-3 text-gray-300">
-              Aucun joueur trouve pour ce score.
+              Aucun joueur trouve pour cette tendance.
             </div>
           )}
         </div>

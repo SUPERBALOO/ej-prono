@@ -587,16 +587,55 @@ async function chargerTendances(matchId: string) {
   let away = 0;
 
   const scores: Record<string, number> = {};
-  const scorePlayers: Record<string, string[]> = {};
+  const scorePlayers: Record<
+    string,
+    Array<{
+      player: string;
+      odds?: number | string | null;
+    }>
+  > = {};
+  const trendPlayers = {
+    home: [] as Array<{
+      player: string;
+      score: string;
+      odds?: number | string | null;
+    }>,
+    draw: [] as Array<{
+      player: string;
+      score: string;
+      odds?: number | string | null;
+    }>,
+    away: [] as Array<{
+      player: string;
+      score: string;
+      odds?: number | string | null;
+    }>,
+  };
 
   Array.from(predictionsByUser.values()).forEach((p: any) => {
 
-    if (p.pred_home > p.pred_away) home++;
-    else if (p.pred_home < p.pred_away) away++;
-    else draw++;
-
     const score =
       `${p.pred_home}-${p.pred_away}`;
+
+    const playerDetail = {
+      player: pseudoByUser.get(p.user_id) || "Joueur",
+      score,
+      odds:
+        p.locked_odds ??
+        p.prediction_odds ??
+        null,
+    };
+
+    if (p.pred_home > p.pred_away) {
+      home++;
+      trendPlayers.home.push(playerDetail);
+    } else if (p.pred_home < p.pred_away) {
+      away++;
+      trendPlayers.away.push(playerDetail);
+    } else {
+      draw++;
+      trendPlayers.draw.push(playerDetail);
+    }
 
     scores[score] =
       (scores[score] || 0) + 1;
@@ -604,9 +643,10 @@ async function chargerTendances(matchId: string) {
     scorePlayers[score] =
       scorePlayers[score] || [];
 
-    scorePlayers[score].push(
-      pseudoByUser.get(p.user_id) || "Joueur"
-    );
+    scorePlayers[score].push({
+      player: playerDetail.player,
+      odds: playerDetail.odds,
+    });
 
   });
 
@@ -638,6 +678,7 @@ async function chargerTendances(matchId: string) {
       .slice(0, 5),
 
     scorePlayers,
+    trendPlayers,
   };
 }
 
@@ -788,6 +829,11 @@ async function chargerDetailsAujourdhui(
       awayPct: 0,
       topScores: [],
       scorePlayers: {},
+      trendPlayers: {
+        home: [],
+        draw: [],
+        away: [],
+      },
     };
   }
 
@@ -813,12 +859,28 @@ async function chargerDetailsAujourdhui(
 
     countedUsersByMatch.add(countedKey);
 
-    if (p.pred_home > p.pred_away) tendance.home++;
-    else if (p.pred_home < p.pred_away) tendance.away++;
-    else tendance.draw++;
-
     const score =
       `${p.pred_home}-${p.pred_away}`;
+
+    const playerDetail = {
+      player: pseudoByUser.get(p.user_id) || "Joueur",
+      score,
+      odds:
+        p.locked_odds ??
+        p.prediction_odds ??
+        null,
+    };
+
+    if (p.pred_home > p.pred_away) {
+      tendance.home++;
+      tendance.trendPlayers.home.push(playerDetail);
+    } else if (p.pred_home < p.pred_away) {
+      tendance.away++;
+      tendance.trendPlayers.away.push(playerDetail);
+    } else {
+      tendance.draw++;
+      tendance.trendPlayers.draw.push(playerDetail);
+    }
 
     scoresParMatch[displayMatchId] =
       scoresParMatch[displayMatchId] || {};
@@ -832,9 +894,10 @@ async function chargerDetailsAujourdhui(
     scorePlayersParMatch[displayMatchId][score] =
       scorePlayersParMatch[displayMatchId][score] || [];
 
-    scorePlayersParMatch[displayMatchId][score].push(
-      pseudoByUser.get(p.user_id) || "Joueur"
-    );
+    scorePlayersParMatch[displayMatchId][score].push({
+      player: playerDetail.player,
+      odds: playerDetail.odds,
+    });
   });
 
   Object.entries(tendancesMap).forEach(

@@ -250,6 +250,11 @@ export default function PronosticsPage() {
         away: 0,
         topScores: [],
         scorePlayers: {},
+        trendPlayers: {
+          home: [],
+          draw: [],
+          away: [],
+        },
       };
     }
 
@@ -272,12 +277,29 @@ export default function PronosticsPage() {
 
       countedUsersByMatch.add(countedKey);
 
-      if (prediction.pred_home > prediction.pred_away) tendance.home++;
-      else if (prediction.pred_home < prediction.pred_away) tendance.away++;
-      else tendance.draw++;
-
       const score =
         `${prediction.pred_home}-${prediction.pred_away}`;
+
+      const playerDetail = {
+        player:
+          pseudoByUser.get(prediction.user_id) || "Joueur",
+        score,
+        odds:
+          prediction.locked_odds ??
+          prediction.prediction_odds ??
+          null,
+      };
+
+      if (prediction.pred_home > prediction.pred_away) {
+        tendance.home++;
+        tendance.trendPlayers.home.push(playerDetail);
+      } else if (prediction.pred_home < prediction.pred_away) {
+        tendance.away++;
+        tendance.trendPlayers.away.push(playerDetail);
+      } else {
+        tendance.draw++;
+        tendance.trendPlayers.draw.push(playerDetail);
+      }
 
       scoresParMatch[displayMatchId] =
         scoresParMatch[displayMatchId] || {};
@@ -291,9 +313,10 @@ export default function PronosticsPage() {
       scorePlayersParMatch[displayMatchId][score] =
         scorePlayersParMatch[displayMatchId][score] || [];
 
-      scorePlayersParMatch[displayMatchId][score].push(
-        pseudoByUser.get(prediction.user_id) || "Joueur"
-      );
+      scorePlayersParMatch[displayMatchId][score].push({
+        player: playerDetail.player,
+        odds: playerDetail.odds,
+      });
     });
 
     Object.entries(tendancesMap).forEach(
