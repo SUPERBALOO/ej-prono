@@ -216,8 +216,31 @@ export default function PronosticsPage() {
         ),
       ]);
 
+    const userIds = Array.from(
+      new Set(
+        (pronos || [])
+          .map((prediction: any) => prediction.user_id)
+          .filter(Boolean)
+      )
+    );
+
+    const { data: profiles } = userIds.length
+      ? await supabase
+          .from("profiles")
+          .select("id,pseudo")
+          .in("id", userIds)
+      : { data: [] };
+
+    const pseudoByUser = new Map(
+      (profiles || []).map((profile: any) => [
+        profile.id,
+        profile.pseudo || "Joueur",
+      ])
+    );
+
     const tendancesMap: any = {};
     const scoresParMatch: any = {};
+    const scorePlayersParMatch: any = {};
     const countedUsersByMatch = new Set<string>();
 
     for (const match of prochainsMatchs) {
@@ -226,6 +249,7 @@ export default function PronosticsPage() {
         draw: 0,
         away: 0,
         topScores: [],
+        scorePlayers: {},
       };
     }
 
@@ -260,10 +284,23 @@ export default function PronosticsPage() {
 
       scoresParMatch[displayMatchId][score] =
         (scoresParMatch[displayMatchId][score] || 0) + 1;
+
+      scorePlayersParMatch[displayMatchId] =
+        scorePlayersParMatch[displayMatchId] || {};
+
+      scorePlayersParMatch[displayMatchId][score] =
+        scorePlayersParMatch[displayMatchId][score] || [];
+
+      scorePlayersParMatch[displayMatchId][score].push(
+        pseudoByUser.get(prediction.user_id) || "Joueur"
+      );
     });
 
     Object.entries(tendancesMap).forEach(
       ([matchId, tendance]: any) => {
+        tendance.scorePlayers =
+          scorePlayersParMatch[matchId] || {};
+
         tendance.topScores =
           Object.entries(scoresParMatch[matchId] || {})
             .sort((a: any, b: any) => b[1] - a[1])

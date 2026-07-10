@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   getStoredAfterExtraTimeScore,
   getStoredPenaltyScore,
@@ -32,6 +33,12 @@ export default function AujourdHuiTab({
   setModifiedPredictions,
   enregistrerPronostic,
 }: Props) {
+  const [scoreDetails, setScoreDetails] =
+    useState<null | {
+      score: string;
+      players: string[];
+      matchLabel: string;
+    }>(null);
 
   function renderScoreDetails(match: any) {
     const extraTimeScore =
@@ -495,12 +502,22 @@ export default function AujourdHuiTab({
 
           return (
 
-            <div
+            <button
+              type="button"
               key={score}
-              className={`${bg} px-3 py-2 rounded-lg font-medium`}
+              onClick={() =>
+                setScoreDetails({
+                  score,
+                  players:
+                    tendance.scorePlayers?.[score] || [],
+                  matchLabel:
+                    `${match.home_team} vs ${match.away_team}`,
+                })
+              }
+              className={`${bg} px-3 py-2 rounded-lg font-medium transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[#D8AA82]`}
             >
               {icon} {score} ×{nb}
-            </div>
+            </button>
 
           );
 
@@ -581,6 +598,55 @@ export default function AujourdHuiTab({
         );
        })}
     </div>
+
+    {scoreDetails && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={() => setScoreDetails(null)}
+      >
+        <div
+          className="w-full max-w-md rounded-2xl bg-[#42546B] p-5 text-white shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-[#D8AA82]">
+                {scoreDetails.matchLabel}
+              </div>
+              <h3 className="mt-1 text-xl font-bold">
+                Score {scoreDetails.score}
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setScoreDetails(null)}
+              className="rounded-lg bg-[#1E3047] px-3 py-2 text-lg font-bold hover:brightness-110"
+              aria-label="Fermer"
+            >
+              x
+            </button>
+          </div>
+
+          {scoreDetails.players.length > 0 ? (
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+              {scoreDetails.players.map((player) => (
+                <div
+                  key={player}
+                  className="rounded-lg bg-[#1E3047] px-4 py-3 font-semibold"
+                >
+                  {player}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-[#1E3047] px-4 py-3 text-gray-300">
+              Aucun joueur trouve pour ce score.
+            </div>
+          )}
+        </div>
+      </div>
+    )}
 
   </div>
 

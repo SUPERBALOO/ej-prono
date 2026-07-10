@@ -566,11 +566,28 @@ async function chargerTendances(matchId: string) {
     }
   });
 
+  const userIds = Array.from(predictionsByUser.keys());
+
+  const { data: profiles } = userIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id,pseudo")
+        .in("id", userIds)
+    : { data: [] };
+
+  const pseudoByUser = new Map(
+    (profiles || []).map((profile: any) => [
+      profile.id,
+      profile.pseudo || "Joueur",
+    ])
+  );
+
   let home = 0;
   let draw = 0;
   let away = 0;
 
   const scores: Record<string, number> = {};
+  const scorePlayers: Record<string, string[]> = {};
 
   Array.from(predictionsByUser.values()).forEach((p: any) => {
 
@@ -583,6 +600,13 @@ async function chargerTendances(matchId: string) {
 
     scores[score] =
       (scores[score] || 0) + 1;
+
+    scorePlayers[score] =
+      scorePlayers[score] || [];
+
+    scorePlayers[score].push(
+      pseudoByUser.get(p.user_id) || "Joueur"
+    );
 
   });
 
@@ -612,6 +636,8 @@ async function chargerTendances(matchId: string) {
     topScores: Object.entries(scores)
       .sort((a: any, b: any) => b[1] - a[1])
       .slice(0, 5),
+
+    scorePlayers,
   };
 }
 
@@ -727,6 +753,28 @@ async function chargerDetailsAujourdhui(
       formesPromise,
     ]);
 
+  const userIds = Array.from(
+    new Set(
+      (pronos || [])
+        .map((prediction: any) => prediction.user_id)
+        .filter(Boolean)
+    )
+  );
+
+  const { data: profiles } = userIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id,pseudo")
+        .in("id", userIds)
+    : { data: [] };
+
+  const pseudoByUser = new Map(
+    (profiles || []).map((profile: any) => [
+      profile.id,
+      profile.pseudo || "Joueur",
+    ])
+  );
+
   const tendancesMap: any = {};
   const countedUsersByMatch = new Set<string>();
 
@@ -739,10 +787,12 @@ async function chargerDetailsAujourdhui(
       drawPct: 0,
       awayPct: 0,
       topScores: [],
+      scorePlayers: {},
     };
   }
 
   const scoresParMatch: any = {};
+  const scorePlayersParMatch: any = {};
 
   (pronos || []).forEach((p: any) => {
     const displayMatchId =
@@ -775,6 +825,16 @@ async function chargerDetailsAujourdhui(
 
     scoresParMatch[displayMatchId][score] =
       (scoresParMatch[displayMatchId][score] || 0) + 1;
+
+    scorePlayersParMatch[displayMatchId] =
+      scorePlayersParMatch[displayMatchId] || {};
+
+    scorePlayersParMatch[displayMatchId][score] =
+      scorePlayersParMatch[displayMatchId][score] || [];
+
+    scorePlayersParMatch[displayMatchId][score].push(
+      pseudoByUser.get(p.user_id) || "Joueur"
+    );
   });
 
   Object.entries(tendancesMap).forEach(
@@ -803,6 +863,9 @@ async function chargerDetailsAujourdhui(
         Object.entries(scoresParMatch[matchId] || {})
           .sort((a: any, b: any) => b[1] - a[1])
           .slice(0, 5);
+
+      tendance.scorePlayers =
+        scorePlayersParMatch[matchId] || {};
     }
   );
 
