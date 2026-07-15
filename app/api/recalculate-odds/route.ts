@@ -6,6 +6,102 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function getEquivalentMatchDateWindow(match: any) {
+  const matchTime = new Date(match.match_date).getTime();
+  const windowMs = 36 * 60 * 60 * 1000;
+
+  return {
+    start: new Date(matchTime - windowMs).toISOString(),
+    end: new Date(matchTime + windowMs).toISOString(),
+  };
+}
+
+function normalizeTeamName(team: any) {
+  return String(team || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function isEquivalentFixture(
+  sourceMatch: any,
+  candidateMatch: any
+) {
+  const sourceHome = normalizeTeamName(sourceMatch.home_team);
+  const sourceAway = normalizeTeamName(sourceMatch.away_team);
+  const candidateHome = normalizeTeamName(
+    candidateMatch.home_team
+  );
+  const candidateAway = normalizeTeamName(
+    candidateMatch.away_team
+  );
+
+  if (
+    sourceHome !== candidateHome ||
+    sourceAway !== candidateAway
+  ) {
+    return false;
+  }
+
+  const sourceDate = new Date(sourceMatch.match_date);
+  const candidateDate = new Date(candidateMatch.match_date);
+
+  if (
+    Number.isNaN(sourceDate.getTime()) ||
+    Number.isNaN(candidateDate.getTime())
+  ) {
+    return false;
+  }
+
+  return (
+    Math.abs(sourceDate.getTime() - candidateDate.getTime()) <=
+    36 * 60 * 60 * 1000
+  );
+}
+
+async function getMatchesToUpdate(match: any) {
+  const matchesById = new Map<string, any>();
+
+  matchesById.set(match.id, match);
+
+  if (match.api_match_id) {
+    const { data: linkedMatches, error: linkedMatchesError } =
+      await supabase
+        .from("matches")
+        .select("*")
+        .eq("api_match_id", match.api_match_id);
+
+    if (linkedMatchesError) {
+      throw linkedMatchesError;
+    }
+
+    (linkedMatches || []).forEach((linkedMatch: any) => {
+      matchesById.set(linkedMatch.id, linkedMatch);
+    });
+  }
+
+  const { start, end } = getEquivalentMatchDateWindow(match);
+
+  const { data: sameFixtureMatches, error } = await supabase
+    .from("matches")
+    .select("*")
+    .gte("match_date", start)
+    .lte("match_date", end);
+
+  if (error) {
+    throw error;
+  }
+
+  (sameFixtureMatches || []).forEach((candidate: any) => {
+    if (isEquivalentFixture(match, candidate)) {
+      matchesById.set(candidate.id, candidate);
+    }
+  });
+
+  return Array.from(matchesById.values());
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { matchId } = await req.json();
@@ -20,23 +116,7 @@ export async function POST(req: NextRequest) {
       throw new Error("Match introuvable");
     }
 
-    let matchesToUpdate = [match];
-
-    if (match.api_match_id) {
-      const { data: linkedMatches, error: linkedMatchesError } =
-        await supabase
-          .from("matches")
-          .select("*")
-          .eq("api_match_id", match.api_match_id);
-
-      if (linkedMatchesError) {
-        throw linkedMatchesError;
-      }
-
-      matchesToUpdate = linkedMatches?.length
-        ? linkedMatches
-        : [match];
-    }
+    const matchesToUpdate = await getMatchesToUpdate(match);
 
     const matchIds = matchesToUpdate.map(
       (linkedMatch: any) => linkedMatch.id
@@ -127,6 +207,8 @@ export async function POST(req: NextRequest) {
       cote_away: Number(
         (1 / newAway).toFixed(2)
       ),
+
+      odds_updated_at: new Date().toISOString(),
     };
 
     await supabase

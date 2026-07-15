@@ -548,8 +548,16 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const updatedMatchIds = matchesToSave.map(
-      (matchToSave: any) => matchToSave.id
+    const updatedEquivalentMatches =
+      await getEquivalentMatches(match);
+
+    const updatedMatchIds = Array.from(
+      new Set(
+        (updatedEquivalentMatches.length
+          ? updatedEquivalentMatches
+          : matchesToSave
+        ).map((matchToSave: any) => matchToSave.id)
+      )
     );
 
     const { data: updatedMatches } = await supabase

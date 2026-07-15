@@ -47,6 +47,60 @@ function getFixtureKey(match: any) {
   return `${home}|${away}|${matchDate}`;
 }
 
+function getOddsUpdateTime(match: any) {
+  const time = new Date(
+    match.odds_updated_at || match.updated_at || 0
+  ).getTime();
+
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function copyOddsFromMatch(target: any, source: any) {
+  return {
+    ...target,
+    cote_home: source.cote_home,
+    cote_draw: source.cote_draw,
+    cote_away: source.cote_away,
+    odds_updated_at: source.odds_updated_at,
+  };
+}
+
+function findUpdatedDisplayMatch(
+  match: any,
+  updatedById: Map<string, any>
+) {
+  const directMatch = updatedById.get(match.id);
+
+  if (directMatch) {
+    return directMatch;
+  }
+
+  const linkedIds =
+    match.linked_match_ids?.length
+      ? match.linked_match_ids
+      : [match.id];
+
+  return linkedIds
+    .map((linkedId: string) => updatedById.get(linkedId))
+    .filter(Boolean)
+    .sort(
+      (a: any, b: any) =>
+        getOddsUpdateTime(b) - getOddsUpdateTime(a)
+    )[0];
+}
+
+function mergeUpdatedDisplayMatch(match: any, updatedMatch: any) {
+  return {
+    ...match,
+    ...updatedMatch,
+    id: match.id,
+    concours_id: match.concours_id,
+    concours_nom: match.concours_nom,
+    linked_match_ids: match.linked_match_ids,
+    linked_concours_noms: match.linked_concours_noms,
+  };
+}
+
 function grouperMatchsMultiConcours(matchsData: any[]) {
   const groupes = new Map<string, any>();
 
@@ -66,6 +120,12 @@ function grouperMatchsMultiConcours(matchsData: any[]) {
           : [],
       });
       return;
+    }
+
+    if (
+      getOddsUpdateTime(match) > getOddsUpdateTime(existing)
+    ) {
+      Object.assign(existing, copyOddsFromMatch(existing, match));
     }
 
     existing.linked_match_ids = Array.from(
@@ -574,7 +634,7 @@ export default function PronosticsPage() {
     const updatedMatches = result.updatedMatches || [];
 
     if (updatedMatches.length) {
-      const updatedById = new Map(
+      const updatedById = new Map<string, any>(
         updatedMatches.map((match: any) => [
           match.id,
           match,
@@ -583,14 +643,13 @@ export default function PronosticsPage() {
 
       setMatchs48h((prev: any[]) =>
         prev.map((match: any) => {
-          const updatedMatch = updatedById.get(match.id);
+          const updatedMatch = findUpdatedDisplayMatch(
+            match,
+            updatedById
+          );
 
           return updatedMatch
-            ? {
-                ...match,
-                ...updatedMatch,
-                concours_nom: match.concours_nom,
-              }
+            ? mergeUpdatedDisplayMatch(match, updatedMatch)
             : match;
         })
       );
