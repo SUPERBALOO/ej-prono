@@ -34,6 +34,10 @@ export default function ConcoursDetailPage() {
   );
   const [copieOk, setCopieOk] = useState(false);
   const [matches, setMatches] = useState<any[]>([]);
+  const [selectedPronosticsGroupKey, setSelectedPronosticsGroupKey] =
+    useState<string | null>(null);
+  const [selectedMatchesGroupKey, setSelectedMatchesGroupKey] =
+    useState<string | null>(null);
   const [predictions, setPredictions] = useState<any>({});
   const [savedPredictions, setSavedPredictions] = useState<any>({});
   const [modifiedPredictions, setModifiedPredictions] = useState<any>({});
@@ -1384,9 +1388,43 @@ function getRoundNumber(value?: string | null) {
   return match ? Number(match[1]) : null;
 }
 
+function getExplicitMatchRound(match: any) {
+  const values = [
+    match.matchday,
+    match.journee,
+    match.round,
+    match.phase,
+    match.groupe,
+  ];
+
+  for (const value of values) {
+    const roundNumber = getRoundNumber(value);
+
+    if (roundNumber) {
+      return roundNumber;
+    }
+  }
+
+  return null;
+}
+
+function isRegularSeasonMatch(match: any) {
+  const phase = String(match.phase || match.groupe || "");
+
+  return (
+    /regular[_\s-]?season/i.test(phase) ||
+    /journ/i.test(phase) ||
+    !phase
+  );
+}
+
 function getMatchGroupLabel(value?: string | null) {
   const key = String(value || "").trim();
   const roundNumber = getRoundNumber(key);
+
+  if (key.startsWith("JOURNEE-") && roundNumber) {
+    return `Journée ${roundNumber}`;
+  }
 
   if (/regular season/i.test(key) && roundNumber) {
     return `Journée ${roundNumber}`;
@@ -1428,13 +1466,57 @@ function getGroupSortValue(group: {
 }
 
 function groupMatchesByStep(matchList: any[]) {
+  const sortedMatches = [...matchList].sort(
+    (a: any, b: any) =>
+      new Date(a.match_date).getTime() -
+      new Date(b.match_date).getTime()
+  );
+  const regularMatches = sortedMatches.filter(isRegularSeasonMatch);
+  const hasExplicitRounds = regularMatches.some(
+    (match: any) => getExplicitMatchRound(match)
+  );
+  const teamNames = new Set<string>();
+
+  regularMatches.forEach((match: any) => {
+    if (match.home_team) {
+      teamNames.add(match.home_team);
+    }
+
+    if (match.away_team) {
+      teamNames.add(match.away_team);
+    }
+  });
+
+  const matchesPerRound = Math.max(
+    1,
+    Math.floor(teamNames.size / 2)
+  );
+  const regularIndexes = new Map<string, number>();
+
+  regularMatches.forEach((match: any, index: number) => {
+    regularIndexes.set(match.id, index);
+  });
+
   const groups = new Map<string, any[]>();
 
-  matchList.forEach((match: any) => {
-    const key =
+  sortedMatches.forEach((match: any) => {
+    let key =
       match.phase ||
       match.groupe ||
       "Autres matchs";
+
+    if (isRegularSeasonMatch(match)) {
+      const explicitRound = getExplicitMatchRound(match);
+
+      if (explicitRound) {
+        key = `JOURNEE-${explicitRound}`;
+      } else if (!hasExplicitRounds && regularMatches.length > 0) {
+        const regularIndex = regularIndexes.get(match.id) || 0;
+        key = `JOURNEE-${
+          Math.floor(regularIndex / matchesPerRound) + 1
+        }`;
+      }
+    }
 
     groups.set(key, [
       ...(groups.get(key) || []),
@@ -1459,12 +1541,165 @@ function groupMatchesByStep(matchList: any[]) {
     );
 }
 
+function getGroupDateBounds(group: any) {
+  const dates = group.matches
+    .map((match: any) => new Date(match.match_date).getTime())
+    .filter((date: number) => Number.isFinite(date))
+    .sort((a: number, b: number) => a - b);
+
+  return {
+    start: dates[0] || 0,
+    end: dates[dates.length - 1] || 0,
+  };
+}
+
+function getDefaultMatchGroup(groups: any[]) {
+  const now = Date.now();
+  const oneDay = 24 * 60 * 60 * 1000;
+  const currentGroup = groups.find((group: any) => {
+    const { start, end } = getGroupDateBounds(group);
+
+    return (
+      start &&
+      end &&
+      now >= start - oneDay &&
+      now <= end + oneDay
+    );
+  });
+
+  if (currentGroup) {
+    return currentGroup;
+  }
+
+  return (
+    groups.find((group: any) => {
+      const { end } = getGroupDateBounds(group);
+      return end && end >= now;
+    }) ||
+    groups[groups.length - 1] ||
+    null
+  );
+}
+
+function formatGroupDateRange(matches: any[]) {
+  const dates = matches
+    .map((match: any) => new Date(match.match_date).getTime())
+    .filter((date: number) => Number.isFinite(date))
+    .sort((a: number, b: number) => a - b);
+
+  if (!dates.length) {
+    return "";
+  }
+
+  const firstDate = new Date(dates[0]);
+  const lastDate = new Date(dates[dates.length - 1]);
+
+  if (firstDate.toDateString() === lastDate.toDateString()) {
+    return firstDate.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  return `${firstDate.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+  })} - ${lastDate.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })}`;
+}
+
+function renderGroupNavigator(
+  groups: any[],
+  selectedKey: string | null,
+  setSelectedKey: (key: string) => void
+) {
+  if (!groups.length) {
+    return null;
+  }
+
+  const defaultGroup = getDefaultMatchGroup(groups) || groups[0];
+  const selectedGroup =
+    groups.find((group: any) => group.key === selectedKey) ||
+    defaultGroup;
+  const selectedIndex = groups.findIndex(
+    (group: any) => group.key === selectedGroup.key
+  );
+  const canGoPrevious = selectedIndex > 0;
+  const canGoNext = selectedIndex < groups.length - 1;
+
+  return (
+    <div className="mb-5 flex flex-col gap-3 rounded-2xl bg-[#1E3047] p-3 md:flex-row md:items-center md:justify-between">
+      <button
+        type="button"
+        disabled={!canGoPrevious}
+        onClick={() =>
+          canGoPrevious &&
+          setSelectedKey(groups[selectedIndex - 1].key)
+        }
+        className="rounded-xl bg-[#33465D] px-4 py-2 font-bold disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        ← Journée précédente
+      </button>
+
+      <div className="flex flex-col items-center gap-1 text-center">
+        <select
+          value={selectedGroup.key}
+          onChange={(event) => setSelectedKey(event.target.value)}
+          className="rounded-xl bg-[#D8AA82] px-4 py-2 font-bold text-[#1E3047]"
+        >
+          {groups.map((group: any) => (
+            <option key={group.key} value={group.key}>
+              {group.label} ({group.matches.length})
+            </option>
+          ))}
+        </select>
+
+        {formatGroupDateRange(selectedGroup.matches) && (
+          <span className="text-sm text-gray-300">
+            {formatGroupDateRange(selectedGroup.matches)}
+          </span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        disabled={!canGoNext}
+        onClick={() =>
+          canGoNext &&
+          setSelectedKey(groups[selectedIndex + 1].key)
+        }
+        className="rounded-xl bg-[#33465D] px-4 py-2 font-bold disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Journée suivante →
+      </button>
+    </div>
+  );
+}
+
 const hasFinalPhaseMatch = matches.some(
   (match: any) =>
     match.phase &&
     match.phase !== "GROUP_STAGE" &&
-    !/regular season/i.test(match.phase)
+    !isRegularSeasonMatch(match)
 );
+const matchGroups = groupMatchesByStep(matches);
+const defaultGroup = getDefaultMatchGroup(matchGroups);
+const selectedPronosticsGroup =
+  matchGroups.find(
+    (group: any) => group.key === selectedPronosticsGroupKey
+  ) ||
+  defaultGroup ||
+  matchGroups[0];
+const selectedMatchesGroup =
+  matchGroups.find(
+    (group: any) => group.key === selectedMatchesGroupKey
+  ) ||
+  defaultGroup ||
+  matchGroups[0];
 
   return (
     <div className="min-h-screen bg-[#1E3047] text-white flex">
@@ -1875,9 +2110,16 @@ className="
       </div>
     )}
 
+    {renderGroupNavigator(
+      matchGroups,
+      selectedPronosticsGroup?.key || selectedPronosticsGroupKey,
+      setSelectedPronosticsGroupKey
+    )}
+
     <div className="space-y-6">
 
-      {groupMatchesByStep(matches).map((matchGroup) => (
+      {selectedPronosticsGroup &&
+        [selectedPronosticsGroup].map((matchGroup) => (
         <section key={matchGroup.key}>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <div className="inline-flex items-center rounded-xl bg-[#D8AA82] px-4 py-2 font-bold text-[#1E3047]">
@@ -2134,9 +2376,15 @@ className="
 
 </div>
 
+{renderGroupNavigator(
+  matchGroups,
+  selectedMatchesGroup?.key || selectedMatchesGroupKey,
+  setSelectedMatchesGroupKey
+)}
+
 <div className="space-y-5">
-  {groupMatchesByStep(matches)
-    .map((matchGroup) => (
+  {selectedMatchesGroup &&
+    [selectedMatchesGroup].map((matchGroup) => (
 
       <div key={matchGroup.key}>
 
