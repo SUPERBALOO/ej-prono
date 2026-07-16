@@ -31,6 +31,7 @@ begin
   ) then
     insert into public.competitions (
       nom,
+      sport,
       api_competition_id,
       api_provider,
       api_league_id,
@@ -40,6 +41,7 @@ begin
     )
     values (
       'Ligue 1 2026-2027',
+      'football',
       '61',
       'api-football',
       61,
@@ -50,6 +52,7 @@ begin
   else
     update public.competitions
     set api_competition_id = '61',
+        sport = 'football',
         api_provider = 'api-football',
         api_league_id = 61,
         api_season = 2026,

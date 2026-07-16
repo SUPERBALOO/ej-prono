@@ -1355,22 +1355,6 @@ if (loading) {
   );
 }
 
-
-  const matchsParGroupe = matches.reduce(
-  (acc: any, match: any) => {
-   const groupe = match.groupe || "PHASES_FINALES";
-
-    if (!acc[groupe]) {
-      acc[groupe] = [];
-    }
-
-    acc[groupe].push(match);
-
-    return acc;
-  },
-  {}
-);
-
 const phaseLabels: Record<string, string> = {
   GROUP_STAGE: "Phase de groupes",
   LAST_16: "Huitièmes de finale",
@@ -1380,10 +1364,106 @@ const phaseLabels: Record<string, string> = {
   FINAL: "Finale",
 };
 
+const phaseOrder: Record<string, number> = {
+  GROUP_STAGE: 10,
+  LAST_16: 20,
+  QUARTER_FINALS: 30,
+  SEMI_FINALS: 40,
+  THIRD_PLACE: 50,
+  FINAL: 60,
+};
+
+function getRoundNumber(value?: string | null) {
+  const text = String(value || "");
+  const match =
+    text.match(/regular season\s*-\s*(\d+)/i) ||
+    text.match(/journee\s*-\s*(\d+)/i) ||
+    text.match(/journée\s*(\d+)/i) ||
+    text.match(/-\s*(\d+)$/);
+
+  return match ? Number(match[1]) : null;
+}
+
+function getMatchGroupLabel(value?: string | null) {
+  const key = String(value || "").trim();
+  const roundNumber = getRoundNumber(key);
+
+  if (/regular season/i.test(key) && roundNumber) {
+    return `Journée ${roundNumber}`;
+  }
+
+  if (phaseLabels[key]) {
+    return phaseLabels[key];
+  }
+
+  if (key.startsWith("GROUP_")) {
+    return key.replace("GROUP_", "Groupe ");
+  }
+
+  return key || "Autres matchs";
+}
+
+function getGroupSortValue(group: {
+  key: string;
+  matches: any[];
+}) {
+  const roundNumber = getRoundNumber(group.key);
+
+  if (roundNumber) {
+    return roundNumber;
+  }
+
+  if (phaseOrder[group.key]) {
+    return phaseOrder[group.key];
+  }
+
+  const firstDate = group.matches
+    .map((match: any) =>
+      new Date(match.match_date).getTime()
+    )
+    .filter((date: number) => Number.isFinite(date))
+    .sort((a: number, b: number) => a - b)[0];
+
+  return firstDate || 999999;
+}
+
+function groupMatchesByStep(matchList: any[]) {
+  const groups = new Map<string, any[]>();
+
+  matchList.forEach((match: any) => {
+    const key =
+      match.phase ||
+      match.groupe ||
+      "Autres matchs";
+
+    groups.set(key, [
+      ...(groups.get(key) || []),
+      match,
+    ]);
+  });
+
+  return Array.from(groups.entries())
+    .map(([key, groupMatches]) => ({
+      key,
+      label: getMatchGroupLabel(key),
+      matches: [...groupMatches].sort(
+        (a: any, b: any) =>
+          new Date(a.match_date).getTime() -
+          new Date(b.match_date).getTime()
+      ),
+    }))
+    .sort(
+      (a, b) =>
+        getGroupSortValue(a) -
+        getGroupSortValue(b)
+    );
+}
+
 const hasFinalPhaseMatch = matches.some(
   (match: any) =>
     match.phase &&
-    match.phase !== "GROUP_STAGE"
+    match.phase !== "GROUP_STAGE" &&
+    !/regular season/i.test(match.phase)
 );
 
   return (
@@ -1795,9 +1875,22 @@ className="
       </div>
     )}
 
-    <div className="space-y-4">
+    <div className="space-y-6">
 
-      {matches.map((match) => (
+      {groupMatchesByStep(matches).map((matchGroup) => (
+        <section key={matchGroup.key}>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center rounded-xl bg-[#D8AA82] px-4 py-2 font-bold text-[#1E3047]">
+              {matchGroup.label}
+            </div>
+            <span className="text-sm text-gray-300">
+              {matchGroup.matches.length} match{matchGroup.matches.length > 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <div className="space-y-4">
+
+      {matchGroup.matches.map((match: any) => (
 
         <div
           key={match.id}
@@ -1987,6 +2080,10 @@ className="
 
       ))}
 
+          </div>
+        </section>
+      ))}
+
     </div>
   </>
 )}
@@ -2038,15 +2135,16 @@ className="
 </div>
 
 <div className="space-y-5">
-  {Object.entries(matchsParGroupe)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([groupe, matchs]: any) => (
+  {groupMatchesByStep(matches)
+    .map((matchGroup) => (
 
-      <div key={groupe}>
+      <div key={matchGroup.key}>
 
         <div
   className="
-    inline-block
+    inline-flex
+    items-center
+    gap-2
     bg-[#D8AA82]
     text-[#1E3047]
     font-bold
@@ -2056,14 +2154,15 @@ className="
     mb-4
   "
 >
-        {groupe.startsWith("GROUP_")
-        ? groupe.replace("GROUP_", "Groupe ")
-        : "🏆 Phases finales"}
+        <span>{matchGroup.label}</span>
+        <span className="rounded-full bg-[#1E3047]/15 px-2 py-0.5 text-sm">
+          {matchGroup.matches.length}
+        </span>
         </div>
 
         <div className="space-y-4">
 
-          {matchs.map((match: any) => (
+          {matchGroup.matches.map((match: any) => (
 
             <div
               key={match.id}
@@ -2114,7 +2213,7 @@ className="
                 </div>
                   {match.phase && (
                   <div className="text-[#D8AA82] text-sm mt-1">
-                   {phaseLabels[match.phase] || match.phase}
+                   {getMatchGroupLabel(match.phase)}
                   </div>
                   )}
 
