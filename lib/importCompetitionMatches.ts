@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildRankingsMap,
+  buildTeamStrengthMap,
+  getClubMatchOddsUpdate,
   getMatchOddsUpdate,
 } from "@/lib/odds";
 import { getMatchScoreUpdate } from "@/lib/matchScores";
@@ -40,6 +42,61 @@ type ApiMatch = {
 type ResolvedTeam = {
   name: string;
   crest: string | null;
+};
+
+type ApiFootballFixture = {
+  fixture?: {
+    id?: number | string;
+    date?: string | null;
+    status?: {
+      short?: string | null;
+      long?: string | null;
+      elapsed?: number | null;
+    } | null;
+  } | null;
+  league?: {
+    round?: string | null;
+  } | null;
+  teams?: {
+    home?: {
+      name?: string | null;
+      logo?: string | null;
+    } | null;
+    away?: {
+      name?: string | null;
+      logo?: string | null;
+    } | null;
+  } | null;
+  goals?: {
+    home?: number | null;
+    away?: number | null;
+  } | null;
+  score?: {
+    halftime?: {
+      home?: number | null;
+      away?: number | null;
+    } | null;
+    fulltime?: {
+      home?: number | null;
+      away?: number | null;
+    } | null;
+    extratime?: {
+      home?: number | null;
+      away?: number | null;
+    } | null;
+    penalty?: {
+      home?: number | null;
+      away?: number | null;
+    } | null;
+  } | null;
+};
+
+type ApiFootballStanding = {
+  rank?: number | null;
+  points?: number | null;
+  team?: {
+    name?: string | null;
+  } | null;
 };
 
 export function getAllowedStages(fromStage?: string | null) {
@@ -301,6 +358,228 @@ function getFootballDataStatus(status: string) {
   }
 }
 
+function getApiFootballStatus(status?: string | null) {
+  switch (status) {
+    case "1H":
+    case "HT":
+    case "2H":
+    case "ET":
+    case "BT":
+    case "P":
+    case "SUSP":
+    case "INT":
+    case "LIVE":
+      return "live";
+
+    case "FT":
+    case "AET":
+    case "PEN":
+      return "finished";
+
+    default:
+      return "scheduled";
+  }
+}
+
+function getApiFootballScoreUpdate(
+  fixture: ApiFootballFixture
+) {
+  const status = getApiFootballStatus(
+    fixture.fixture?.status?.short
+  );
+
+  const fullTimeHome =
+    fixture.score?.fulltime?.home ??
+    (status === "scheduled" ? null : fixture.goals?.home) ??
+    null;
+  const fullTimeAway =
+    fixture.score?.fulltime?.away ??
+    (status === "scheduled" ? null : fixture.goals?.away) ??
+    null;
+
+  const extraHome =
+    fixture.score?.extratime?.home ?? null;
+  const extraAway =
+    fixture.score?.extratime?.away ?? null;
+  const penaltyHome =
+    fixture.score?.penalty?.home ?? null;
+  const penaltyAway =
+    fixture.score?.penalty?.away ?? null;
+
+  return {
+    home_score: fullTimeHome,
+    away_score: fullTimeAway,
+    full_time_home_score: fullTimeHome,
+    full_time_away_score: fullTimeAway,
+    extra_time_home_score: extraHome,
+    extra_time_away_score: extraAway,
+    penalty_home_score: penaltyHome,
+    penalty_away_score: penaltyAway,
+    score_duration:
+      fixture.fixture?.status?.short === "AET"
+        ? "EXTRA_TIME"
+        : fixture.fixture?.status?.short === "PEN"
+          ? "PENALTY_SHOOTOUT"
+          : "REGULAR",
+    score_details: fixture.score ?? null,
+  };
+}
+
+async function fetchFootballDataMatches(competition: any) {
+  const response = await fetch(
+    `https://api.football-data.org/v4/competitions/${competition.api_competition_id}/matches`,
+    {
+      headers: {
+        "X-Auth-Token":
+          process.env.FOOTBALL_DATA_API_KEY!,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data.matches) {
+    throw new Error(
+      data?.message || "Aucun match trouve"
+    );
+  }
+
+  return {
+    rawCount: data.matches.length,
+    matches: data.matches as ApiMatch[],
+  };
+}
+
+async function fetchApiFootballFixtures(competition: any) {
+  const leagueId =
+    competition.api_league_id ||
+    competition.api_competition_id;
+  const season = competition.api_season;
+
+  if (!leagueId || !season) {
+    throw new Error(
+      "Competition API-Football incomplete"
+    );
+  }
+
+  const response = await fetch(
+    `https://v3.football.api-sports.io/fixtures?league=${leagueId}&season=${season}`,
+    {
+      headers: {
+        "x-apisports-key":
+          process.env.API_FOOTBALL_KEY!,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !Array.isArray(data.response)) {
+    throw new Error(
+      data?.message ||
+        data?.errors?.requests ||
+        "Aucun match trouve"
+    );
+  }
+
+  return {
+    rawCount: data.response.length,
+    fixtures: data.response as ApiFootballFixture[],
+  };
+}
+
+async function fetchApiFootballPreviousStandings(
+  competition: any
+) {
+  const leagueId =
+    competition.api_league_id ||
+    competition.api_competition_id;
+  const season = Number(competition.api_season) - 1;
+
+  if (!leagueId || !season) {
+    return [];
+  }
+
+  const response = await fetch(
+    `https://v3.football.api-sports.io/standings?league=${leagueId}&season=${season}`,
+    {
+      headers: {
+        "x-apisports-key":
+          process.env.API_FOOTBALL_KEY!,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        data?.errors?.requests ||
+        "Classement API-Football introuvable"
+    );
+  }
+
+  const standings =
+    data.response?.[0]?.league?.standings?.[0];
+
+  if (!Array.isArray(standings)) {
+    return [];
+  }
+
+  return standings
+    .filter(
+      (standing: ApiFootballStanding) =>
+        standing.team?.name && standing.rank
+    )
+    .map((standing: ApiFootballStanding) => ({
+      team_name: standing.team!.name!,
+      previous_rank: standing.rank!,
+      strength_points:
+        standing.points != null
+          ? 1200 + standing.points * 7
+          : null,
+      home_bonus_points: 60,
+    }));
+}
+
+async function getCompetitionTeamStrengths(
+  supabase: SupabaseClient,
+  competition: any
+) {
+  const { data, error } = await supabase
+    .from("competition_team_rankings")
+    .select(
+      "team_name,previous_rank,strength_points,home_bonus_points"
+    )
+    .eq("competition_id", competition.id)
+    .eq("season", competition.api_season)
+    .eq("active", true);
+
+  if (error) {
+    console.warn(
+      "Classements clubs Supabase indisponibles",
+      error.message
+    );
+  }
+
+  if (data?.length) {
+    return data;
+  }
+
+  try {
+    return await fetchApiFootballPreviousStandings(
+      competition
+    );
+  } catch (error) {
+    console.warn(
+      "Classement clubs API-Football indisponible",
+      error
+    );
+    return [];
+  }
+}
+
 export async function importCompetitionMatches({
   supabase,
   concoursId,
@@ -339,60 +618,95 @@ export async function importCompetitionMatches({
     throw new Error("Competition introuvable");
   }
 
-  const response = await fetch(
-    `https://api.football-data.org/v4/competitions/${competition.api_competition_id}/matches`,
-    {
-      headers: {
-        "X-Auth-Token":
-          process.env.FOOTBALL_DATA_API_KEY!,
-      },
-    }
-  );
+  const apiProvider =
+    competition.api_provider || "football-data";
 
-  const data = await response.json();
+  let ignoredCount = 0;
+  let validMatches: any[] = [];
+  let teamStrengthsMap = buildTeamStrengthMap([]);
 
-  if (!response.ok || !data.matches) {
-    throw new Error(
-      data?.message || "Aucun match trouve"
-    );
-  }
+  if (apiProvider === "api-football") {
+    const { rawCount, fixtures } =
+      await fetchApiFootballFixtures(competition);
+    const teamStrengths =
+      await getCompetitionTeamStrengths(
+        supabase,
+        competition
+      );
 
-  const apiMatches = data.matches as ApiMatch[];
-  const resolvedTeams =
-    buildResolvedTeamMap(apiMatches);
+    teamStrengthsMap =
+      buildTeamStrengthMap(teamStrengths);
 
-  const validMatches = apiMatches
-    .filter(
-      (match) =>
-        resolvedTeams.get(match.id)?.home?.name &&
-        resolvedTeams.get(match.id)?.away?.name &&
-        (!allowedStages ||
-          (!!match.stage &&
-            allowedStages.includes(match.stage)))
-    )
-    .map((match) => {
-      const teams = resolvedTeams.get(match.id)!;
-
-      return {
-        api_match_id: match.id,
+    validMatches = fixtures
+      .filter(
+        (fixture) =>
+          fixture.fixture?.id &&
+          fixture.fixture?.date &&
+          fixture.teams?.home?.name &&
+          fixture.teams?.away?.name
+      )
+      .map((fixture) => ({
+        api_match_id: fixture.fixture!.id,
         concours_id: concoursId,
-        home_team: teams.home!.name,
-        away_team: teams.away!.name,
-        home_logo: teams.home!.crest,
-        away_logo: teams.away!.crest,
-        match_date: match.utcDate,
-        phase: match.stage ?? null,
-        groupe: match.group ?? null,
-        status: getFootballDataStatus(match.status),
-        ...getMatchScoreUpdate(match.score),
-      };
-    });
+        home_team: fixture.teams!.home!.name,
+        away_team: fixture.teams!.away!.name,
+        home_logo: fixture.teams!.home!.logo ?? null,
+        away_logo: fixture.teams!.away!.logo ?? null,
+        match_date: fixture.fixture!.date,
+        phase: fixture.league?.round ?? null,
+        groupe: null,
+        status: getApiFootballStatus(
+          fixture.fixture?.status?.short
+        ),
+        live_status:
+          fixture.fixture?.status?.short ?? null,
+        live_minute:
+          fixture.fixture?.status?.elapsed ?? null,
+        ...getApiFootballScoreUpdate(fixture),
+      }));
+
+    ignoredCount = rawCount - validMatches.length;
+  } else {
+    const { rawCount, matches: apiMatches } =
+      await fetchFootballDataMatches(competition);
+    const resolvedTeams =
+      buildResolvedTeamMap(apiMatches);
+
+    validMatches = apiMatches
+      .filter(
+        (match) =>
+          resolvedTeams.get(match.id)?.home?.name &&
+          resolvedTeams.get(match.id)?.away?.name &&
+          (!allowedStages ||
+            (!!match.stage &&
+              allowedStages.includes(match.stage)))
+      )
+      .map((match) => {
+        const teams = resolvedTeams.get(match.id)!;
+
+        return {
+          api_match_id: match.id,
+          concours_id: concoursId,
+          home_team: teams.home!.name,
+          away_team: teams.away!.name,
+          home_logo: teams.home!.crest,
+          away_logo: teams.away!.crest,
+          match_date: match.utcDate,
+          phase: match.stage ?? null,
+          groupe: match.group ?? null,
+          status: getFootballDataStatus(match.status),
+          ...getMatchScoreUpdate(match.score),
+        };
+      });
+
+    ignoredCount = rawCount - validMatches.length;
+  }
 
   if (!validMatches.length) {
     return {
       success: true,
       imported: 0,
-      ignored: data.matches.length,
+      ignored: ignoredCount,
       fromStage: effectiveFromStage || null,
       oddsUpdated: 0,
       oddsSkipped: 0,
@@ -421,10 +735,13 @@ export async function importCompetitionMatches({
   let oddsSkipped = 0;
 
   for (const match of importedMatches || []) {
-    const oddsUpdate = getMatchOddsUpdate(
-      match,
-      rankingsMap
-    );
+    const oddsUpdate =
+      apiProvider === "api-football"
+        ? getClubMatchOddsUpdate(
+            match,
+            teamStrengthsMap
+          )
+        : getMatchOddsUpdate(match, rankingsMap);
 
     if (!oddsUpdate) {
       oddsSkipped++;
@@ -446,7 +763,7 @@ export async function importCompetitionMatches({
   return {
     success: true,
     imported: validMatches.length,
-    ignored: data.matches.length - validMatches.length,
+    ignored: ignoredCount,
     fromStage: effectiveFromStage || null,
     oddsUpdated,
     oddsSkipped,

@@ -41,6 +41,78 @@ function getFootballDataStatus(status: string) {
   }
 }
 
+function getApiFootballStatus(status?: string | null) {
+  switch (status) {
+    case "1H":
+    case "HT":
+    case "2H":
+    case "ET":
+    case "BT":
+    case "P":
+    case "SUSP":
+    case "INT":
+    case "LIVE":
+      return "live";
+
+    case "FT":
+    case "AET":
+    case "PEN":
+      return "finished";
+
+    default:
+      return "scheduled";
+  }
+}
+
+function getApiFootballScoreUpdate(fixture: any) {
+  const status = getApiFootballStatus(
+    fixture.fixture?.status?.short
+  );
+
+  const fullTimeHome =
+    fixture.score?.fulltime?.home ??
+    (status === "scheduled" ? null : fixture.goals?.home) ??
+    null;
+  const fullTimeAway =
+    fixture.score?.fulltime?.away ??
+    (status === "scheduled" ? null : fixture.goals?.away) ??
+    null;
+
+  return {
+    home_score: fullTimeHome,
+    away_score: fullTimeAway,
+    full_time_home_score: fullTimeHome,
+    full_time_away_score: fullTimeAway,
+    extra_time_home_score:
+      fixture.score?.extratime?.home ?? null,
+    extra_time_away_score:
+      fixture.score?.extratime?.away ?? null,
+    penalty_home_score:
+      fixture.score?.penalty?.home ?? null,
+    penalty_away_score:
+      fixture.score?.penalty?.away ?? null,
+    score_duration:
+      fixture.fixture?.status?.short === "AET"
+        ? "EXTRA_TIME"
+        : fixture.fixture?.status?.short === "PEN"
+          ? "PENALTY_SHOOTOUT"
+          : "REGULAR",
+    score_details: fixture.score ?? null,
+  };
+}
+
+function getMatchProvider(match: any) {
+  return (
+    match.competition?.api_provider ||
+    match.competitions?.api_provider ||
+    "football-data"
+  );
+}
+
+function getApiResponseKey(provider: string, apiMatchId: any) {
+  return `${provider}:${String(apiMatchId)}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const apiMatchId =
@@ -192,74 +264,182 @@ export async function GET(req: NextRequest) {
     let updated = 0;
     let processed = 0;
 
-    const apiIds = Array.from(
+    const concoursIds = Array.from(
       new Set(
-        matches.map((match: any) =>
-          String(match.api_match_id)
-        )
+        matches
+          .map((match: any) => match.concours_id)
+          .filter(Boolean)
       )
+    );
+
+    const { data: concoursRows, error: concoursError } =
+      concoursIds.length
+        ? await supabase
+            .from("concours")
+            .select("id,competition_id")
+            .in("id", concoursIds)
+        : { data: [], error: null };
+
+    if (concoursError) {
+      throw concoursError;
+    }
+
+    const competitionIds = Array.from(
+      new Set(
+        (concoursRows || [])
+          .map((concours: any) => concours.competition_id)
+          .filter(Boolean)
+      )
+    );
+
+    const { data: competitions, error: competitionsError } =
+      competitionIds.length
+        ? await supabase
+            .from("competitions")
+            .select("*")
+            .in("id", competitionIds)
+        : { data: [], error: null };
+
+    if (competitionsError) {
+      throw competitionsError;
+    }
+
+    const competitionById = new Map(
+      (competitions || []).map((competition: any) => [
+        competition.id,
+        competition,
+      ])
+    );
+
+    const competitionByConcours = new Map(
+      (concoursRows || []).map((concours: any) => [
+        concours.id,
+        competitionById.get(concours.competition_id) ||
+          null,
+      ])
+    );
+
+    const matchesWithProvider = matches.map((match: any) => ({
+      ...match,
+      competition:
+        competitionByConcours.get(match.concours_id) || null,
+    }));
+
+    const apiTargets = Array.from(
+      new Map(
+        matchesWithProvider.map((match: any) => {
+          const provider = getMatchProvider(match);
+
+          return [
+            getApiResponseKey(provider, match.api_match_id),
+            {
+              provider,
+              apiMatchId: String(match.api_match_id),
+            },
+          ];
+        })
+      ).values()
     );
 
     const apiResponses = new Map<string, any>();
 
-    for (const id of apiIds) {
+    for (const target of apiTargets) {
       try {
-        const response = await fetch(
-          `https://api.football-data.org/v4/matches/${id}`,
-          {
-            headers: {
-              "X-Auth-Token":
-                process.env.FOOTBALL_DATA_API_KEY!,
-            },
-          }
-        );
+        const response =
+          target.provider === "api-football"
+            ? await fetch(
+                `https://v3.football.api-sports.io/fixtures?id=${target.apiMatchId}`,
+                {
+                  headers: {
+                    "x-apisports-key":
+                      process.env.API_FOOTBALL_KEY!,
+                  },
+                }
+              )
+            : await fetch(
+                `https://api.football-data.org/v4/matches/${target.apiMatchId}`,
+                {
+                  headers: {
+                    "X-Auth-Token":
+                      process.env.FOOTBALL_DATA_API_KEY!,
+                  },
+                }
+              );
 
         const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
             data?.message ||
-              `Erreur Football-Data ${response.status}`
+              `Erreur ${target.provider} ${response.status}`
           );
         }
 
-        if (!data?.id) {
+        const matchData =
+          target.provider === "api-football"
+            ? data.response?.[0]
+            : data;
+
+        if (
+          (target.provider === "api-football" &&
+            !matchData?.fixture?.id) ||
+          (target.provider !== "api-football" &&
+            !matchData?.id)
+        ) {
           throw new Error(
-            `Match API introuvable ${id}`
+            `Match API introuvable ${target.apiMatchId}`
           );
         }
 
-        apiResponses.set(id, data);
+        apiResponses.set(
+          getApiResponseKey(
+            target.provider,
+            target.apiMatchId
+          ),
+          matchData
+        );
       } catch (err) {
         console.error(
-          `Erreur match API ${id}`,
+          `Erreur match API ${target.apiMatchId}`,
           err
         );
       }
     }
 
-    for (const match of matches) {
+    for (const match of matchesWithProvider) {
       try {
+        const provider = getMatchProvider(match);
         const data = apiResponses.get(
-          String(match.api_match_id)
+          getApiResponseKey(provider, match.api_match_id)
         );
 
         if (!data) {
           continue;
         }
 
-        const status = getFootballDataStatus(
-          data.status
-        );
+        const status =
+          provider === "api-football"
+            ? getApiFootballStatus(
+                data.fixture?.status?.short
+              )
+            : getFootballDataStatus(data.status);
 
         const scoreUpdate =
-          getMatchScoreUpdate(data.score);
+          provider === "api-football"
+            ? getApiFootballScoreUpdate(data)
+            : getMatchScoreUpdate(data.score);
 
         const updateData = {
           ...scoreUpdate,
           status,
-          live_status: data.status ?? null,
-          live_minute: data.minute ?? null,
+          live_status:
+            provider === "api-football"
+              ? data.fixture?.status?.short ?? null
+              : data.status ?? null,
+          live_minute:
+            provider === "api-football"
+              ? data.fixture?.status?.elapsed ?? null
+              : data.minute ?? null,
         };
 
         const scoreChanged =

@@ -3,6 +3,12 @@ export type TeamRanking = {
   points: number;
 };
 
+export type TeamStrength = {
+  rank: number;
+  points: number;
+  homeBonus: number;
+};
+
 export function normalizeTeamName(name: string) {
   const normalized = name
     .toLowerCase()
@@ -89,6 +95,42 @@ export function buildRankingsMap(
   return rankingsMap;
 }
 
+function getStrengthPointsFromRank(rank: number) {
+  return Math.max(1150, 1850 - (rank - 1) * 35);
+}
+
+export function buildTeamStrengthMap(
+  rankings: Array<{
+    team_name: string;
+    previous_rank?: number | null;
+    rank?: number | null;
+    strength_points?: number | null;
+    points?: number | null;
+    home_bonus_points?: number | null;
+  }>
+) {
+  const strengthsMap = new Map<string, TeamStrength>();
+
+  for (const team of rankings) {
+    const rank = team.previous_rank ?? team.rank;
+
+    if (!team.team_name || !rank) {
+      continue;
+    }
+
+    strengthsMap.set(normalizeTeamName(team.team_name), {
+      rank,
+      points:
+        team.strength_points ??
+        team.points ??
+        getStrengthPointsFromRank(rank),
+      homeBonus: team.home_bonus_points ?? 60,
+    });
+  }
+
+  return strengthsMap;
+}
+
 export function getMatchOddsUpdate(
   match: {
     home_team: string;
@@ -113,6 +155,42 @@ export function getMatchOddsUpdate(
   return {
     fifa_home_points: home.points,
     fifa_away_points: away.points,
+    home_probability: odds.homeProbability,
+    draw_probability: odds.drawProbability,
+    away_probability: odds.awayProbability,
+    cote_home: odds.coteHome,
+    cote_draw: odds.coteDraw,
+    cote_away: odds.coteAway,
+    odds_updated_at: new Date().toISOString(),
+  };
+}
+
+export function getClubMatchOddsUpdate(
+  match: {
+    home_team: string;
+    away_team: string;
+  },
+  strengthsMap: Map<string, TeamStrength>
+) {
+  const home = strengthsMap.get(
+    normalizeTeamName(match.home_team)
+  );
+
+  const away = strengthsMap.get(
+    normalizeTeamName(match.away_team)
+  );
+
+  if (!home || !away) {
+    return null;
+  }
+
+  const homePoints = home.points + home.homeBonus;
+  const awayPoints = away.points;
+  const odds = calculateOdds(homePoints, awayPoints);
+
+  return {
+    fifa_home_points: homePoints,
+    fifa_away_points: awayPoints,
     home_probability: odds.homeProbability,
     draw_probability: odds.drawProbability,
     away_probability: odds.awayProbability,
