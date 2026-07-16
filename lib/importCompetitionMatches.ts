@@ -580,6 +580,30 @@ async function getCompetitionTeamStrengths(
   }
 }
 
+function buildFallbackTeamStrengthsFromMatches(
+  matches: Array<{
+    home_team?: string | null;
+    away_team?: string | null;
+  }>
+) {
+  const teamNames = Array.from(
+    new Set(
+      matches.flatMap((match) =>
+        [match.home_team, match.away_team].filter(Boolean)
+      ) as string[]
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  return buildTeamStrengthMap(
+    teamNames.map((teamName, index) => ({
+      team_name: teamName,
+      previous_rank: index + 1,
+      strength_points: 1500,
+      home_bonus_points: 60,
+    }))
+  );
+}
+
 export async function importCompetitionMatches({
   supabase,
   concoursId,
@@ -664,6 +688,11 @@ export async function importCompetitionMatches({
           fixture.fixture?.status?.elapsed ?? null,
         ...getApiFootballScoreUpdate(fixture),
       }));
+
+    if (!teamStrengthsMap.size) {
+      teamStrengthsMap =
+        buildFallbackTeamStrengthsFromMatches(validMatches);
+    }
 
     ignoredCount = rawCount - validMatches.length;
   } else {
