@@ -396,7 +396,9 @@ export async function GET(req: NextRequest) {
       for (const match of missingMatches) {
         const sourcePrediction =
           predictionByApi.get(match.api_match_id) ||
-          (await findEquivalentPrediction(user.id, match));
+          (!match.api_match_id
+            ? await findEquivalentPrediction(user.id, match)
+            : null);
 
         if (!sourcePrediction) {
           continue;
