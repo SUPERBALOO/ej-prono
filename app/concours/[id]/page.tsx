@@ -944,7 +944,13 @@ async function chargerDetailsAujourdhui(
 
 async function actualiserCotesManquantes() {
   try {
-    await fetch("/api/update-fifa-rankings");
+    await fetch("/api/recalculate-odds", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ concoursId }),
+    });
 
     const { data: refreshedMatches } =
       await supabase

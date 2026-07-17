@@ -1,10 +1,177 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  buildRankingsMap,
+  buildTeamStrengthMap,
+  getClubMatchOddsUpdate,
+  getMatchOddsUpdate,
+} from "@/lib/odds";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+function buildFallbackClubStrengths(matches: any[]) {
+  const teamNames = Array.from(
+    new Set(
+      matches.flatMap((match) =>
+        [match.home_team, match.away_team].filter(Boolean)
+      )
+    )
+  ).sort((a, b) => String(a).localeCompare(String(b)));
+
+  return buildTeamStrengthMap(
+    teamNames.map((teamName, index) => ({
+      team_name: teamName,
+      previous_rank: index + 1,
+      strength_points: 1500,
+      home_bonus_points: 60,
+    }))
+  );
+}
+
+async function recalculateMissingContestOdds(
+  concoursId: string
+) {
+  const { data: concours, error: concoursError } =
+    await supabase
+      .from("concours")
+      .select("id,competition_id")
+      .eq("id", concoursId)
+      .single();
+
+  if (concoursError || !concours?.competition_id) {
+    throw new Error("Concours introuvable");
+  }
+
+  const { data: competition } = await supabase
+    .from("competitions")
+    .select("*")
+    .eq("id", concours.competition_id)
+    .single();
+
+  if (!competition) {
+    throw new Error("Competition introuvable");
+  }
+
+  const { data: matches, error: matchesError } =
+    await supabase
+      .from("matches")
+      .select("*")
+      .eq("concours_id", concoursId)
+      .order("match_date", { ascending: true });
+
+  if (matchesError) {
+    throw matchesError;
+  }
+
+  const matchesToUpdate = (matches || []).filter(
+    (match: any) =>
+      match.cote_home == null ||
+      match.cote_draw == null ||
+      match.cote_away == null
+  );
+
+  if (!matchesToUpdate.length) {
+    return {
+      success: true,
+      updated: 0,
+      skipped: 0,
+      message: "Aucune cote manquante",
+    };
+  }
+
+  const apiProvider =
+    competition?.api_provider || "football-data";
+
+  let oddsByMatch = new Map<string, any>();
+
+  if (apiProvider === "api-football") {
+    let rankingsQuery = supabase
+      .from("competition_team_rankings")
+      .select(
+        "team_name,previous_rank,strength_points,home_bonus_points"
+      )
+      .eq("competition_id", competition.id)
+      .eq("active", true);
+
+    if (competition.api_season) {
+      rankingsQuery = rankingsQuery.eq(
+        "season",
+        competition.api_season
+      );
+    }
+
+    const { data: teamRankings } = await rankingsQuery;
+
+    let strengthsMap = buildTeamStrengthMap(
+      teamRankings || []
+    );
+
+    if (!strengthsMap.size) {
+      strengthsMap =
+        buildFallbackClubStrengths(matches || []);
+    }
+
+    for (const match of matchesToUpdate) {
+      const oddsUpdate = getClubMatchOddsUpdate(
+        match,
+        strengthsMap
+      );
+
+      if (oddsUpdate) {
+        oddsByMatch.set(match.id, oddsUpdate);
+      }
+    }
+  } else {
+    const { data: rankings } = await supabase
+      .from("fifa_rankings")
+      .select("team_name,fifa_rank,fifa_points");
+
+    const rankingsMap = buildRankingsMap(rankings || []);
+
+    for (const match of matchesToUpdate) {
+      const oddsUpdate = getMatchOddsUpdate(
+        match,
+        rankingsMap
+      );
+
+      if (oddsUpdate) {
+        oddsByMatch.set(match.id, oddsUpdate);
+      }
+    }
+  }
+
+  let updated = 0;
+  let skipped = 0;
+
+  for (const match of matchesToUpdate) {
+    const oddsUpdate = oddsByMatch.get(match.id);
+
+    if (!oddsUpdate) {
+      skipped++;
+      continue;
+    }
+
+    const { error } = await supabase
+      .from("matches")
+      .update(oddsUpdate)
+      .eq("id", match.id);
+
+    if (error) {
+      skipped++;
+    } else {
+      updated++;
+    }
+  }
+
+  return {
+    success: true,
+    updated,
+    skipped,
+  };
+}
 
 function getEquivalentMatchDateWindow(match: any) {
   const matchTime = new Date(match.match_date).getTime();
@@ -104,7 +271,14 @@ async function getMatchesToUpdate(match: any) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { matchId } = await req.json();
+    const { matchId, concoursId } = await req.json();
+
+    if (concoursId && !matchId) {
+      const result =
+        await recalculateMissingContestOdds(concoursId);
+
+      return NextResponse.json(result);
+    }
 
     const { data: match } = await supabase
       .from("matches")
