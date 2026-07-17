@@ -99,6 +99,87 @@ type ApiFootballStanding = {
   } | null;
 };
 
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function inferApiFootballLeagueId(competition: any) {
+  const explicitLeagueId =
+    competition.api_league_id ||
+    competition.api_competition_id;
+
+  if (explicitLeagueId) {
+    return explicitLeagueId;
+  }
+
+  const label = normalizeText(
+    `${competition.nom ?? ""} ${competition.concours_nom ?? ""}`
+  );
+
+  if (label.includes("ligue 1")) {
+    return 61;
+  }
+
+  return null;
+}
+
+function inferApiFootballSeason(competition: any) {
+  if (competition.api_season) {
+    return Number(competition.api_season);
+  }
+
+  if (competition.season) {
+    return Number(competition.season);
+  }
+
+  const startDate =
+    competition.date_debut ||
+    competition.start_date ||
+    competition.date_start ||
+    competition.concours_date_debut;
+
+  if (startDate) {
+    const year = new Date(startDate).getFullYear();
+
+    if (!Number.isNaN(year)) {
+      return year;
+    }
+  }
+
+  const label = `${competition.nom ?? ""} ${
+    competition.concours_nom ?? ""
+  }`;
+  const years = Array.from(
+    label.matchAll(/\b(20\d{2})\b/g),
+    (match) => Number(match[1])
+  ).filter((year) => !Number.isNaN(year));
+
+  if (!years.length) {
+    return null;
+  }
+
+  if (years.length > 1) {
+    return Math.min(...years);
+  }
+
+  if (normalizeText(label).includes("ligue 1")) {
+    return years[0] - 1;
+  }
+
+  return years[0];
+}
+
+function withApiFootballDefaults(competition: any) {
+  return {
+    ...competition,
+    api_league_id: inferApiFootballLeagueId(competition),
+    api_season: inferApiFootballSeason(competition),
+  };
+}
+
 export function getAllowedStages(fromStage?: string | null) {
   if (!fromStage) {
     return null;
@@ -451,10 +532,8 @@ async function fetchFootballDataMatches(competition: any) {
 }
 
 async function fetchApiFootballFixtures(competition: any) {
-  const leagueId =
-    competition.api_league_id ||
-    competition.api_competition_id;
-  const season = competition.api_season;
+  const { api_league_id: leagueId, api_season: season } =
+    withApiFootballDefaults(competition);
 
   if (!leagueId || !season) {
     throw new Error(
@@ -491,10 +570,11 @@ async function fetchApiFootballFixtures(competition: any) {
 async function fetchApiFootballPreviousStandings(
   competition: any
 ) {
-  const leagueId =
-    competition.api_league_id ||
-    competition.api_competition_id;
-  const season = Number(competition.api_season) - 1;
+  const {
+    api_league_id: leagueId,
+    api_season: currentSeason,
+  } = withApiFootballDefaults(competition);
+  const season = Number(currentSeason) - 1;
 
   if (!leagueId || !season) {
     return [];
@@ -616,7 +696,7 @@ export async function importCompetitionMatches({
   const { data: concours, error: concoursError } =
     await supabase
       .from("concours")
-      .select("id,nom,competition_id")
+      .select("id,nom,competition_id,date_debut,date_fin")
       .eq("id", concoursId)
       .single();
 
@@ -642,6 +722,13 @@ export async function importCompetitionMatches({
     throw new Error("Competition introuvable");
   }
 
+  const competitionContext = {
+    ...competition,
+    concours_nom: concours.nom,
+    concours_date_debut: concours.date_debut,
+    concours_date_fin: concours.date_fin,
+  };
+
   const apiProvider =
     competition.api_provider || "football-data";
 
@@ -650,12 +737,14 @@ export async function importCompetitionMatches({
   let teamStrengthsMap = buildTeamStrengthMap([]);
 
   if (apiProvider === "api-football") {
+    const apiCompetition =
+      withApiFootballDefaults(competitionContext);
     const { rawCount, fixtures } =
-      await fetchApiFootballFixtures(competition);
+      await fetchApiFootballFixtures(apiCompetition);
     const teamStrengths =
       await getCompetitionTeamStrengths(
         supabase,
-        competition
+        apiCompetition
       );
 
     teamStrengthsMap =
