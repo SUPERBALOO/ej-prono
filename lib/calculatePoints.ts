@@ -50,7 +50,10 @@ export async function calculatePoints(
     let exactScore = false;
 
     const cote =
-      Number(prediction.prediction_odds) || 1;
+      Number(
+        prediction.locked_odds ??
+          prediction.prediction_odds
+      ) || 1;
 
     if (
       predHome === realHome &&

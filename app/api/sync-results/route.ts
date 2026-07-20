@@ -4,7 +4,11 @@ import {
 } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { calculatePoints } from "@/lib/calculatePoints";
-import { getMatchScoreUpdate } from "@/lib/matchScores";
+import {
+  getApiFootballScoreUpdate,
+  hasScorePair,
+  getMatchScoreUpdate,
+} from "@/lib/matchScores";
 import {
   importCompetitionMatches,
   inferImportStageFromConcoursName,
@@ -64,43 +68,6 @@ function getApiFootballStatus(status?: string | null) {
   }
 }
 
-function getApiFootballScoreUpdate(fixture: any) {
-  const status = getApiFootballStatus(
-    fixture.fixture?.status?.short
-  );
-
-  const fullTimeHome =
-    fixture.score?.fulltime?.home ??
-    (status === "scheduled" ? null : fixture.goals?.home) ??
-    null;
-  const fullTimeAway =
-    fixture.score?.fulltime?.away ??
-    (status === "scheduled" ? null : fixture.goals?.away) ??
-    null;
-
-  return {
-    home_score: fullTimeHome,
-    away_score: fullTimeAway,
-    full_time_home_score: fullTimeHome,
-    full_time_away_score: fullTimeAway,
-    extra_time_home_score:
-      fixture.score?.extratime?.home ?? null,
-    extra_time_away_score:
-      fixture.score?.extratime?.away ?? null,
-    penalty_home_score:
-      fixture.score?.penalty?.home ?? null,
-    penalty_away_score:
-      fixture.score?.penalty?.away ?? null,
-    score_duration:
-      fixture.fixture?.status?.short === "AET"
-        ? "EXTRA_TIME"
-        : fixture.fixture?.status?.short === "PEN"
-          ? "PENALTY_SHOOTOUT"
-          : "REGULAR",
-    score_details: fixture.score ?? null,
-  };
-}
-
 function getMatchProvider(match: any) {
   return (
     match.competition?.api_provider ||
@@ -111,6 +78,158 @@ function getMatchProvider(match: any) {
 
 function getApiResponseKey(provider: string, apiMatchId: any) {
   return `${provider}:${String(apiMatchId)}`;
+}
+
+function getApiFootballTeamSide(data: any, teamId: number) {
+  if (data.teams?.home?.id === teamId) {
+    return "home";
+  }
+
+  if (data.teams?.away?.id === teamId) {
+    return "away";
+  }
+
+  return null;
+}
+
+async function getApiFootballRegularScoreFromEvents(
+  apiMatchId: string,
+  data: any
+) {
+  const response = await fetch(
+    `https://v3.football.api-sports.io/fixtures/events?fixture=${apiMatchId}`,
+    {
+      headers: {
+        "x-apisports-key": process.env.API_FOOTBALL_KEY!,
+      },
+    }
+  );
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.message ||
+        `Erreur API-Football events ${response.status}`
+    );
+  }
+
+  const score = {
+    home: 0,
+    away: 0,
+  };
+
+  for (const event of payload.response || []) {
+    if (
+      event.type !== "Goal" ||
+      event.detail === "Missed Penalty" ||
+      Number(event.time?.elapsed ?? 0) > 90
+    ) {
+      continue;
+    }
+
+    const side = getApiFootballTeamSide(
+      data,
+      event.team?.id
+    );
+
+    if (!side) {
+      continue;
+    }
+
+    const scoringSide =
+      event.detail === "Own Goal"
+        ? side === "home"
+          ? "away"
+          : "home"
+        : side;
+
+    score[scoringSide]++;
+  }
+
+  return score;
+}
+
+async function enrichApiFootballScoreUpdate(
+  apiMatchId: string,
+  data: any,
+  status: "scheduled" | "live" | "finished"
+) {
+  const scoreUpdate = getApiFootballScoreUpdate(
+    data,
+    status
+  );
+
+  const elapsed = Number(
+    data.fixture?.status?.elapsed ?? 0
+  );
+
+  const hasTiebreakDetails =
+    hasScorePair(
+      scoreUpdate.extra_time_home_score,
+      scoreUpdate.extra_time_away_score
+    ) ||
+    hasScorePair(
+      scoreUpdate.penalty_home_score,
+      scoreUpdate.penalty_away_score
+    );
+
+  if (
+    status !== "finished" ||
+    elapsed <= 90 ||
+    hasTiebreakDetails ||
+    !hasScorePair(
+      scoreUpdate.home_score,
+      scoreUpdate.away_score
+    )
+  ) {
+    return scoreUpdate;
+  }
+
+  const regularScore =
+    await getApiFootballRegularScoreFromEvents(
+      apiMatchId,
+      data
+    );
+
+  const finalHome =
+    data.goals?.home ??
+    data.score?.fulltime?.home ??
+    scoreUpdate.home_score;
+
+  const finalAway =
+    data.goals?.away ??
+    data.score?.fulltime?.away ??
+    scoreUpdate.away_score;
+
+  if (
+    regularScore.home === finalHome &&
+    regularScore.away === finalAway
+  ) {
+    return scoreUpdate;
+  }
+
+  return {
+    ...scoreUpdate,
+    home_score: regularScore.home,
+    away_score: regularScore.away,
+    full_time_home_score: finalHome,
+    full_time_away_score: finalAway,
+    extra_time_home_score:
+      finalHome !== null
+        ? finalHome - regularScore.home
+        : null,
+    extra_time_away_score:
+      finalAway !== null
+        ? finalAway - regularScore.away
+        : null,
+    score_duration: "EXTRA_TIME",
+    score_details: {
+      ...scoreUpdate.score_details,
+      regularTime: regularScore,
+      correctedFromEvents: true,
+    },
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -426,7 +545,11 @@ export async function GET(req: NextRequest) {
 
         const scoreUpdate =
           provider === "api-football"
-            ? getApiFootballScoreUpdate(data)
+            ? await enrichApiFootballScoreUpdate(
+                String(match.api_match_id),
+                data,
+                status
+              )
             : getMatchScoreUpdate(data.score);
 
         const updateData = {

@@ -8,6 +8,20 @@ type MatchScore = {
   duration?: string | null;
 };
 
+type ApiFootballFixtureScore = {
+  fixture?: {
+    status?: {
+      short?: string | null;
+    } | null;
+  } | null;
+  goals?: Partial<Record<ScoreSide, number | null>> | null;
+  score?: {
+    fulltime?: Partial<Record<ScoreSide, number | null>> | null;
+    extratime?: Partial<Record<ScoreSide, number | null>> | null;
+    penalty?: Partial<Record<ScoreSide, number | null>> | null;
+  } | null;
+};
+
 function getScoreValue(
   score: MatchScore | null | undefined,
   period:
@@ -247,6 +261,138 @@ export function getMatchScoreUpdate(
     ),
     score_duration: score?.duration ?? null,
     score_details: score ?? null,
+  };
+}
+
+function getApiFootballScoreValue(
+  fixture: ApiFootballFixtureScore,
+  period: "fulltime" | "extratime" | "penalty",
+  side: ScoreSide
+) {
+  return fixture.score?.[period]?.[side] ?? null;
+}
+
+function hasApiFootballTiebreak(
+  fixture: ApiFootballFixtureScore
+) {
+  const status = fixture.fixture?.status?.short;
+
+  return (
+    status === "AET" ||
+    status === "PEN" ||
+    hasScorePair(
+      getApiFootballScoreValue(
+        fixture,
+        "extratime",
+        "home"
+      ),
+      getApiFootballScoreValue(
+        fixture,
+        "extratime",
+        "away"
+      )
+    ) ||
+    hasScorePair(
+      getApiFootballScoreValue(
+        fixture,
+        "penalty",
+        "home"
+      ),
+      getApiFootballScoreValue(
+        fixture,
+        "penalty",
+        "away"
+      )
+    )
+  );
+}
+
+function getApiFootballMainScore(
+  fixture: ApiFootballFixtureScore,
+  side: ScoreSide,
+  status: "scheduled" | "live" | "finished"
+) {
+  if (status === "scheduled") {
+    return null;
+  }
+
+  const fullTimeHome =
+    getApiFootballScoreValue(
+      fixture,
+      "fulltime",
+      "home"
+    );
+  const fullTimeAway =
+    getApiFootballScoreValue(
+      fixture,
+      "fulltime",
+      "away"
+    );
+  const fullTimeValue =
+    side === "home" ? fullTimeHome : fullTimeAway;
+
+  if (
+    fullTimeValue !== null &&
+    (!hasApiFootballTiebreak(fixture) ||
+      fullTimeHome === fullTimeAway)
+  ) {
+    return fullTimeValue;
+  }
+
+  if (hasApiFootballTiebreak(fixture)) {
+    return null;
+  }
+
+  return fixture.goals?.[side] ?? null;
+}
+
+export function getApiFootballScoreUpdate(
+  fixture: ApiFootballFixtureScore,
+  status: "scheduled" | "live" | "finished"
+) {
+  const fullTimeHome = getApiFootballMainScore(
+    fixture,
+    "home",
+    status
+  );
+  const fullTimeAway = getApiFootballMainScore(
+    fixture,
+    "away",
+    status
+  );
+
+  return {
+    home_score: fullTimeHome,
+    away_score: fullTimeAway,
+    full_time_home_score: fullTimeHome,
+    full_time_away_score: fullTimeAway,
+    extra_time_home_score: getApiFootballScoreValue(
+      fixture,
+      "extratime",
+      "home"
+    ),
+    extra_time_away_score: getApiFootballScoreValue(
+      fixture,
+      "extratime",
+      "away"
+    ),
+    penalty_home_score: getApiFootballScoreValue(
+      fixture,
+      "penalty",
+      "home"
+    ),
+    penalty_away_score: getApiFootballScoreValue(
+      fixture,
+      "penalty",
+      "away"
+    ),
+    score_duration:
+      fixture.fixture?.status?.short === "AET"
+        ? "EXTRA_TIME"
+        : fixture.fixture?.status?.short === "PEN"
+          ? "PENALTY_SHOOTOUT"
+          : "REGULAR",
+    score_details: fixture.score ?? null,
   };
 }
 

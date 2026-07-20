@@ -5,7 +5,10 @@ import {
   getClubMatchOddsUpdate,
   getMatchOddsUpdate,
 } from "@/lib/odds";
-import { getMatchScoreUpdate } from "@/lib/matchScores";
+import {
+  getApiFootballScoreUpdate,
+  getMatchScoreUpdate,
+} from "@/lib/matchScores";
 
 const stageOrder = [
   "GROUP_STAGE",
@@ -462,50 +465,6 @@ function getApiFootballStatus(status?: string | null) {
   }
 }
 
-function getApiFootballScoreUpdate(
-  fixture: ApiFootballFixture
-) {
-  const status = getApiFootballStatus(
-    fixture.fixture?.status?.short
-  );
-
-  const fullTimeHome =
-    fixture.score?.fulltime?.home ??
-    (status === "scheduled" ? null : fixture.goals?.home) ??
-    null;
-  const fullTimeAway =
-    fixture.score?.fulltime?.away ??
-    (status === "scheduled" ? null : fixture.goals?.away) ??
-    null;
-
-  const extraHome =
-    fixture.score?.extratime?.home ?? null;
-  const extraAway =
-    fixture.score?.extratime?.away ?? null;
-  const penaltyHome =
-    fixture.score?.penalty?.home ?? null;
-  const penaltyAway =
-    fixture.score?.penalty?.away ?? null;
-
-  return {
-    home_score: fullTimeHome,
-    away_score: fullTimeAway,
-    full_time_home_score: fullTimeHome,
-    full_time_away_score: fullTimeAway,
-    extra_time_home_score: extraHome,
-    extra_time_away_score: extraAway,
-    penalty_home_score: penaltyHome,
-    penalty_away_score: penaltyAway,
-    score_duration:
-      fixture.fixture?.status?.short === "AET"
-        ? "EXTRA_TIME"
-        : fixture.fixture?.status?.short === "PEN"
-          ? "PENALTY_SHOOTOUT"
-          : "REGULAR",
-    score_details: fixture.score ?? null,
-  };
-}
-
 async function fetchFootballDataMatches(competition: any) {
   const response = await fetch(
     `https://api.football-data.org/v4/competitions/${competition.api_competition_id}/matches`,
@@ -758,25 +717,29 @@ export async function importCompetitionMatches({
           fixture.teams?.home?.name &&
           fixture.teams?.away?.name
       )
-      .map((fixture) => ({
-        api_match_id: fixture.fixture!.id,
-        concours_id: concoursId,
-        home_team: fixture.teams!.home!.name,
-        away_team: fixture.teams!.away!.name,
-        home_logo: fixture.teams!.home!.logo ?? null,
-        away_logo: fixture.teams!.away!.logo ?? null,
-        match_date: fixture.fixture!.date,
-        phase: fixture.league?.round ?? null,
-        groupe: null,
-        status: getApiFootballStatus(
+      .map((fixture) => {
+        const status = getApiFootballStatus(
           fixture.fixture?.status?.short
-        ),
-        live_status:
-          fixture.fixture?.status?.short ?? null,
-        live_minute:
-          fixture.fixture?.status?.elapsed ?? null,
-        ...getApiFootballScoreUpdate(fixture),
-      }));
+        );
+
+        return {
+          api_match_id: fixture.fixture!.id,
+          concours_id: concoursId,
+          home_team: fixture.teams!.home!.name,
+          away_team: fixture.teams!.away!.name,
+          home_logo: fixture.teams!.home!.logo ?? null,
+          away_logo: fixture.teams!.away!.logo ?? null,
+          match_date: fixture.fixture!.date,
+          phase: fixture.league?.round ?? null,
+          groupe: null,
+          status,
+          live_status:
+            fixture.fixture?.status?.short ?? null,
+          live_minute:
+            fixture.fixture?.status?.elapsed ?? null,
+          ...getApiFootballScoreUpdate(fixture, status),
+        };
+      });
 
     if (!teamStrengthsMap.size) {
       teamStrengthsMap =
