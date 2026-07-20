@@ -1138,6 +1138,52 @@ function renderScoreDetails(match: any) {
   );
 }
 
+function renderOddsRow(match: any) {
+  const oddsPillClass =
+    "grid h-10 min-w-0 grid-cols-[24px_1fr] items-center justify-center gap-2 rounded px-3 text-center font-bold";
+
+  return (
+    <div className="grid w-full max-w-[300px] grid-cols-3 gap-2">
+      <div className={`${oddsPillClass} bg-green-700`}>
+        {match.home_logo ? (
+          <img
+            src={match.home_logo}
+            alt={match.home_team}
+            className="h-6 w-6 object-contain"
+          />
+        ) : (
+          <span className="text-center">🏠</span>
+        )}
+        <span className="tabular-nums">
+          {match.cote_home ?? "--"}
+        </span>
+      </div>
+
+      <div className={`${oddsPillClass} bg-gray-600`}>
+        <span className="text-center">🤝</span>
+        <span className="tabular-nums">
+          {match.cote_draw ?? "--"}
+        </span>
+      </div>
+
+      <div className={`${oddsPillClass} bg-blue-700`}>
+        {match.away_logo ? (
+          <img
+            src={match.away_logo}
+            alt={match.away_team}
+            className="h-6 w-6 object-contain"
+          />
+        ) : (
+          <span className="text-center">✈️</span>
+        )}
+        <span className="tabular-nums">
+          {match.cote_away ?? "--"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function renderPlayerAvatar(joueur: any) {
   return (
     <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#D8AA82] flex items-center justify-center text-sm font-bold text-[#1E3047]">
@@ -2172,42 +2218,7 @@ className="
             
 
 
-<div className="flex flex-wrap items-center gap-2">
-
-  <div className="bg-green-700 px-3 py-2 rounded flex items-center gap-2">
-    {match.home_logo && (
-      <img
-        src={match.home_logo}
-        alt={match.home_team}
-        className="w-6 h-6 object-contain"
-      />
-    )}
-    <span className="font-bold">
-      {match.cote_home ?? "--"}
-    </span>
-  </div>
-
-  <div className="bg-gray-600 px-3 py-2 rounded flex items-center gap-2">
-    <span>🤝</span>
-    <span className="font-bold">
-      {match.cote_draw ?? "--"}
-    </span>
-  </div>
-
-  <div className="bg-blue-700 px-3 py-2 rounded flex items-center gap-2">
-    {match.away_logo && (
-      <img
-        src={match.away_logo}
-        alt={match.away_team}
-        className="w-6 h-6 object-contain"
-      />
-    )}
-    <span className="font-bold">
-      {match.cote_away ?? "--"}
-    </span>
-  </div>
-
-</div>
+{renderOddsRow(match)}
 
 
             <div className="flex flex-wrap items-center gap-3">

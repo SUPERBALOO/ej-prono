@@ -29,37 +29,60 @@ function calculatePredictionPoints(prediction, match) {
         1
     ) || 1;
 
+  let points = 0;
+  let exactScore = false;
+
   if (
     prediction.pred_home === match.home_score &&
     prediction.pred_away === match.away_score
   ) {
-    return {
-      points: Math.round(100 * cote),
-      exact_score: true,
-    };
+    exactScore = true;
+    points = Math.round(100 * cote);
+  } else {
+    const realResult =
+      match.home_score > match.away_score
+        ? "HOME"
+        : match.home_score < match.away_score
+          ? "AWAY"
+          : "DRAW";
+
+    const predResult =
+      prediction.pred_home > prediction.pred_away
+        ? "HOME"
+        : prediction.pred_home < prediction.pred_away
+          ? "AWAY"
+          : "DRAW";
+
+    if (realResult === predResult) {
+      points = Math.round(50 * cote);
+    }
   }
 
-  const realResult =
-    match.home_score > match.away_score
-      ? "HOME"
-      : match.home_score < match.away_score
-        ? "AWAY"
-        : "DRAW";
-
-  const predResult =
-    prediction.pred_home > prediction.pred_away
-      ? "HOME"
-      : prediction.pred_home < prediction.pred_away
-        ? "AWAY"
-        : "DRAW";
+  if (points > 0 && isLeMansWin(match)) {
+    points *= 2;
+  }
 
   return {
-    points:
-      realResult === predResult
-        ? Math.round(50 * cote)
-        : 0,
-    exact_score: false,
+    points,
+    exact_score: exactScore,
   };
+}
+
+function isLeMansTeam(team) {
+  return String(team || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .includes("le mans");
+}
+
+function isLeMansWin(match) {
+  return (
+    (isLeMansTeam(match.home_team) &&
+      match.home_score > match.away_score) ||
+    (isLeMansTeam(match.away_team) &&
+      match.away_score > match.home_score)
+  );
 }
 
 function hasTiebreak(match) {

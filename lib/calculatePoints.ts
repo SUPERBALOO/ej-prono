@@ -5,6 +5,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function isLeMansTeam(team: string | null | undefined) {
+  return (team || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .includes("le mans");
+}
+
+function shouldDoubleLeMansPoints(match: {
+  home_team?: string | null;
+  away_team?: string | null;
+  home_score: number;
+  away_score: number;
+}) {
+  if (
+    isLeMansTeam(match.home_team) &&
+    match.home_score > match.away_score
+  ) {
+    return true;
+  }
+
+  return (
+    isLeMansTeam(match.away_team) &&
+    match.away_score > match.home_score
+  );
+}
+
 export async function calculatePoints(
   matchId: string
 ) {
@@ -15,11 +42,13 @@ export async function calculatePoints(
         *,
         matches (
           id,
-          home_score,
-          away_score,
-          status
-        )
-      `)
+        home_score,
+        away_score,
+        home_team,
+        away_team,
+        status
+      )
+    `)
       .eq("match_id", matchId);
 
   if (error) {
@@ -79,6 +108,18 @@ export async function calculatePoints(
       if (realResult === predResult) {
         points = Math.round(50 * cote);
       }
+    }
+
+    if (
+      points > 0 &&
+      shouldDoubleLeMansPoints({
+        home_team: match.home_team,
+        away_team: match.away_team,
+        home_score: realHome,
+        away_score: realAway,
+      })
+    ) {
+      points *= 2;
     }
 
     await supabase
