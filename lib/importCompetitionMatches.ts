@@ -539,47 +539,59 @@ async function fetchApiFootballPreviousStandings(
     return [];
   }
 
-  const response = await fetch(
-    `https://v3.football.api-sports.io/standings?league=${leagueId}&season=${season}`,
-    {
-      headers: {
-        "x-apisports-key":
-          process.env.API_FOOTBALL_KEY!,
-      },
-    }
-  );
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.message ||
-        data?.errors?.requests ||
-        "Classement API-Football introuvable"
+  async function fetchLeagueStandings(
+    targetLeagueId: number,
+    rankOffset = 0
+  ) {
+    const response = await fetch(
+      `https://v3.football.api-sports.io/standings?league=${targetLeagueId}&season=${season}`,
+      {
+        headers: {
+          "x-apisports-key":
+            process.env.API_FOOTBALL_KEY!,
+        },
+      }
     );
+    const data = await response.json();
+    const standings =
+      data.response?.[0]?.league?.standings?.[0];
+
+    if (!response.ok || !Array.isArray(standings)) {
+      return [];
+    }
+
+    return standings
+      .filter(
+        (standing: ApiFootballStanding) =>
+          standing.team?.name && standing.rank
+      )
+      .map((standing: ApiFootballStanding) => {
+        const previousRank =
+          rankOffset + standing.rank!;
+
+        return {
+          team_name: standing.team!.name!,
+          previous_rank: previousRank,
+          strength_points: Math.max(
+            1150,
+            1850 - (previousRank - 1) * 35
+          ),
+          home_bonus_points: 60,
+        };
+      });
   }
 
-  const standings =
-    data.response?.[0]?.league?.standings?.[0];
+  const primaryStandings =
+    await fetchLeagueStandings(Number(leagueId));
 
-  if (!Array.isArray(standings)) {
-    return [];
+  if (Number(leagueId) !== 61) {
+    return primaryStandings;
   }
 
-  return standings
-    .filter(
-      (standing: ApiFootballStanding) =>
-        standing.team?.name && standing.rank
-    )
-    .map((standing: ApiFootballStanding) => ({
-      team_name: standing.team!.name!,
-      previous_rank: standing.rank!,
-      strength_points:
-        standing.points != null
-          ? 1200 + standing.points * 7
-          : null,
-      home_bonus_points: 60,
-    }));
+  const ligue2Standings =
+    await fetchLeagueStandings(62, 18);
+
+  return [...primaryStandings, ...ligue2Standings];
 }
 
 async function getCompetitionTeamStrengths(
@@ -602,45 +614,43 @@ async function getCompetitionTeamStrengths(
     );
   }
 
-  if (data?.length) {
-    return data;
-  }
-
   try {
-    return await fetchApiFootballPreviousStandings(
+    const previousStandings =
+      await fetchApiFootballPreviousStandings(
       competition
     );
+
+    if (previousStandings.length) {
+      const rows = previousStandings.map((standing) => ({
+        competition_id: competition.id,
+        season: competition.api_season,
+        ...standing,
+        active: true,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error: saveError } = await supabase
+        .from("competition_team_rankings")
+        .upsert(rows, {
+          onConflict: "competition_id,season,team_name",
+        });
+
+      if (saveError) {
+        console.warn(
+          "Classement N-1 non sauvegardé",
+          saveError.message
+        );
+      }
+    }
+
+    return [...previousStandings, ...(data || [])];
   } catch (error) {
     console.warn(
       "Classement clubs API-Football indisponible",
       error
     );
-    return [];
+    return data || [];
   }
-}
-
-function buildFallbackTeamStrengthsFromMatches(
-  matches: Array<{
-    home_team?: string | null;
-    away_team?: string | null;
-  }>
-) {
-  const teamNames = Array.from(
-    new Set(
-      matches.flatMap((match) =>
-        [match.home_team, match.away_team].filter(Boolean)
-      ) as string[]
-    )
-  ).sort((a, b) => a.localeCompare(b));
-
-  return buildTeamStrengthMap(
-    teamNames.map((teamName, index) => ({
-      team_name: teamName,
-      previous_rank: index + 1,
-      strength_points: 1500,
-      home_bonus_points: 60,
-    }))
-  );
 }
 
 export async function importCompetitionMatches({
@@ -740,11 +750,6 @@ export async function importCompetitionMatches({
           ...getApiFootballScoreUpdate(fixture, status),
         };
       });
-
-    if (!teamStrengthsMap.size) {
-      teamStrengthsMap =
-        buildFallbackTeamStrengthsFromMatches(validMatches);
-    }
 
     ignoredCount = rawCount - validMatches.length;
   } else {

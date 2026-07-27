@@ -2,7 +2,7 @@
   "name": "EJ Prono",
   "short_name": "EJ Prono",
   "description": "Application de pronostics sportifs",
-  "start_url": "/dashboard",
+  "start_url": "/pronostics",
   "display": "standalone",
   "background_color": "#1E3047",
   "theme_color": "#1E3047",

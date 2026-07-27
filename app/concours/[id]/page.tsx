@@ -29,8 +29,11 @@ export default function ConcoursDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [createurPseudo, setCreateurPseudo] = useState("");
 
+  const requestedTab = searchParams.get("tab");
   const [onglet, setOnglet] = useState(
-  searchParams.get("tab") || "aujourdhui"
+    requestedTab === "matchs"
+      ? "pronostics"
+      : requestedTab || "aujourdhui"
   );
   const [copieOk, setCopieOk] = useState(false);
   const [matches, setMatches] = useState<any[]>([]);
@@ -97,7 +100,7 @@ useEffect(() => {
 
   const interval = setInterval(() => {
 
-    if (onglet === "matchs") {
+    if (onglet === "pronostics") {
       chargerConcours(false);
     }
 
@@ -942,15 +945,22 @@ async function chargerDetailsAujourdhui(
   );
 }
 
-async function actualiserCotesManquantes() {
+async function actualiserCotesManquantes(force = false) {
   try {
-    await fetch("/api/recalculate-odds", {
+    const response = await fetch("/api/recalculate-odds", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ concoursId }),
+      body: JSON.stringify({ concoursId, force }),
     });
+    const result = await response.json();
+
+    if (!response.ok || result.success === false) {
+      throw new Error(
+        result.error || "Recalcul des cotes impossible"
+      );
+    }
 
     const { data: refreshedMatches } =
       await supabase
@@ -969,8 +979,22 @@ async function actualiserCotesManquantes() {
       getMatchsAutourAujourdhui(refreshedMatches);
 
     setMatchs48h(prochainsMatchs);
+
+    if (force) {
+      alert(
+        `${result.updated || 0} cote(s) recalculée(s) avec le classement de la saison précédente.`
+      );
+    }
   } catch (error) {
     console.error(error);
+
+    if (force) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Recalcul des cotes impossible"
+      );
+    }
   }
 }
 
@@ -1752,7 +1776,6 @@ const selectedMatchesGroup =
   ) ||
   defaultGroup ||
   matchGroups[0];
-
   return (
     <div className="min-h-screen bg-[#1E3047] text-white flex">
       <Sidebar />
@@ -2023,7 +2046,7 @@ className="
 
             <button
               onClick={() => setOnglet("matchs")}
-              className={`p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
+              className={`hidden p-3 md:p-5 rounded-xl font-semibold text-sm md:text-lg transition ${
                 onglet === "matchs"
                   ? "bg-[#D8AA82]"
                   : "bg-[#33465D] hover:bg-[#42546B]"
@@ -2156,6 +2179,37 @@ className="
       🌍 Pronostics
     </h2>
 
+    {isAdmin && (
+      <div className="mb-6 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <button
+          onClick={() =>
+            router.push(`/concours/${params.id}/matchs/ajouter`)
+          }
+          className="rounded-xl bg-[#D8AA82] px-5 py-3 font-semibold text-[#1E3047] hover:opacity-90"
+        >
+          Ajouter un match
+        </button>
+
+        <button
+          onClick={() =>
+            importerMatchs(
+              getDefaultImportStage(concours?.nom) || undefined
+            )
+          }
+          className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white hover:bg-green-700"
+        >
+          Importer les matchs
+        </button>
+
+        <button
+          onClick={() => actualiserCotesManquantes(true)}
+          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+        >
+          Recalculer les cotes N-1
+        </button>
+      </div>
+    )}
+
     {hasFinalPhaseMatch && (
       <div className="bg-[#D8AA82] text-[#1E3047] rounded-xl p-4 font-semibold mb-6">
         Info phases finales : les pronostics sont comptabilises sur le score a la fin du temps reglementaire (90 min), hors prolongation et tirs au but.
@@ -2191,9 +2245,9 @@ className="
           className="bg-[#42546B] rounded-2xl p-5"
         >
 
-          <div className="flex flex-col lg:flex-row gap-4 lg:justify-between lg:items-center">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.9fr)_minmax(270px,0.85fr)] lg:items-center">
 
-            <div>
+            <div className="min-w-0">
               <div className="font-bold text-lg md:text-xl break-words">
                 {match.home_team} vs {match.away_team}
               </div>
@@ -2214,14 +2268,42 @@ className="
   })}
 </div>
               </div>
+
+              <div className="mt-3">
+                {match.status === "live" && (
+                  <div className="inline-flex rounded-full bg-red-600 px-3 py-1 text-sm font-bold">
+                    LIVE {match.live_minute ? `${match.live_minute}'` : ""}
+                    <span className="ml-2">
+                      {match.home_score ?? 0} - {match.away_score ?? 0}
+                    </span>
+                  </div>
+                )}
+
+                {match.status === "finished" && (
+                  <div className="inline-flex rounded-full bg-green-700 px-3 py-1 text-sm font-bold">
+                    Terminé
+                    <span className="ml-2 text-[#D8AA82]">
+                      {match.home_score} - {match.away_score}
+                    </span>
+                  </div>
+                )}
+
+                {match.status === "scheduled" && (
+                  <div className="inline-flex rounded-full bg-[#33465D] px-3 py-1 text-sm font-semibold text-gray-200">
+                    À venir
+                  </div>
+                )}
+              </div>
             </div>
             
 
 
-{renderOddsRow(match)}
+            <div className="flex justify-start lg:justify-center">
+              {renderOddsRow(match)}
+            </div>
 
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 lg:justify-end">
 
               <input
                 type="number"

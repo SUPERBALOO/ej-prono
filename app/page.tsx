@@ -3,16 +3,14 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 
 export default function Home() {
+  const router = useRouter();
   const [participants, setParticipants] = useState(0);
   const [concours, setConcours] = useState(0);
   const [pronostics, setPronostics] = useState(0);
-
-  useEffect(() => {
-    chargerStats();
-  }, []);
 
   async function chargerStats() {
     try {
@@ -33,6 +31,17 @@ export default function Home() {
       console.error("Erreur chargement statistiques :", err);
     }
   }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        router.replace("/pronostics");
+      }
+    });
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void chargerStats();
+  }, [router]);
 
   return (
     <main className="min-h-screen bg-[#1F2933] flex items-center justify-center p-6">

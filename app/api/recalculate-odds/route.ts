@@ -12,27 +12,89 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function buildFallbackClubStrengths(matches: any[]) {
-  const teamNames = Array.from(
-    new Set(
-      matches.flatMap((match) =>
-        [match.home_team, match.away_team].filter(Boolean)
-      )
-    )
-  ).sort((a, b) => String(a).localeCompare(String(b)));
+async function fetchAndStorePreviousClubStandings(
+  competition: any
+) {
+  const leagueId = Number(competition.api_league_id);
+  const currentSeason = Number(competition.api_season);
+  const previousSeason = currentSeason - 1;
 
-  return buildTeamStrengthMap(
-    teamNames.map((teamName, index) => ({
-      team_name: teamName,
-      previous_rank: index + 1,
-      strength_points: 1500,
-      home_bonus_points: 60,
-    }))
-  );
+  if (
+    !leagueId ||
+    !previousSeason ||
+    !process.env.API_FOOTBALL_KEY
+  ) {
+    return [];
+  }
+
+  async function fetchLeagueRows(
+    targetLeagueId: number,
+    rankOffset = 0
+  ) {
+    const response = await fetch(
+      `https://v3.football.api-sports.io/standings?league=${targetLeagueId}&season=${previousSeason}`,
+      {
+        headers: {
+          "x-apisports-key":
+            process.env.API_FOOTBALL_KEY!,
+        },
+        cache: "no-store",
+      }
+    );
+    const result = await response.json();
+    const standings =
+      result.response?.[0]?.league?.standings?.[0];
+
+    if (!response.ok || !Array.isArray(standings)) {
+      return [];
+    }
+
+    return standings
+      .filter(
+        (standing: any) =>
+          standing.team?.name && standing.rank
+      )
+      .map((standing: any) => {
+        const previousRank =
+          rankOffset + standing.rank;
+
+        return {
+          competition_id: competition.id,
+          season: currentSeason,
+          team_name: standing.team.name,
+          previous_rank: previousRank,
+          strength_points: Math.max(
+            1150,
+            1850 - (previousRank - 1) * 35
+          ),
+          home_bonus_points: 60,
+          active: true,
+          updated_at: new Date().toISOString(),
+        };
+      });
+  }
+
+  const primaryRows = await fetchLeagueRows(leagueId);
+  const promotedTeamRows =
+    leagueId === 61
+      ? await fetchLeagueRows(62, 18)
+      : [];
+  const rows = [...primaryRows, ...promotedTeamRows];
+
+  if (rows.length) {
+    await supabase
+      .from("competition_team_rankings")
+      .upsert(rows, {
+        onConflict: "competition_id,season,team_name",
+      });
+  }
+
+  return rows;
 }
 
 async function recalculateMissingContestOdds(
-  concoursId: string
+  concoursId: string,
+  force = false
 ) {
   const { data: concours, error: concoursError } =
     await supabase
@@ -66,12 +128,14 @@ async function recalculateMissingContestOdds(
     throw matchesError;
   }
 
-  const matchesToUpdate = (matches || []).filter(
-    (match: any) =>
-      match.cote_home == null ||
-      match.cote_draw == null ||
-      match.cote_away == null
-  );
+  const matchesToUpdate = force
+    ? matches || []
+    : (matches || []).filter(
+        (match: any) =>
+          match.cote_home == null ||
+          match.cote_draw == null ||
+          match.cote_away == null
+      );
 
   if (!matchesToUpdate.length) {
     return {
@@ -103,15 +167,26 @@ async function recalculateMissingContestOdds(
       );
     }
 
-    const { data: teamRankings } = await rankingsQuery;
+    const { data: storedTeamRankings } =
+      await rankingsQuery;
 
-    let strengthsMap = buildTeamStrengthMap(
+    const fetchedTeamRankings =
+      await fetchAndStorePreviousClubStandings(
+        competition
+      );
+    const teamRankings = [
+      ...fetchedTeamRankings,
+      ...(storedTeamRankings || []),
+    ];
+
+    const strengthsMap = buildTeamStrengthMap(
       teamRankings || []
     );
 
     if (!strengthsMap.size) {
-      strengthsMap =
-        buildFallbackClubStrengths(matches || []);
+      throw new Error(
+        "Classement de la saison précédente introuvable. Importez-le avant de recalculer les cotes."
+      );
     }
 
     for (const match of matchesToUpdate) {
@@ -271,11 +346,14 @@ async function getMatchesToUpdate(match: any) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { matchId, concoursId } = await req.json();
+    const { matchId, concoursId, force } = await req.json();
 
     if (concoursId && !matchId) {
       const result =
-        await recalculateMissingContestOdds(concoursId);
+        await recalculateMissingContestOdds(
+          concoursId,
+          force === true
+        );
 
       return NextResponse.json(result);
     }

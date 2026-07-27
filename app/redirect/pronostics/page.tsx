@@ -84,7 +84,7 @@ export default function RedirectPronosticsPage() {
         }
 
         router.replace(
-          `/concours/${dernierConcours.id}?tab=pronostics`
+          `/concours/${dernierConcours.id}?tab=aujourdhui`
         );
       } catch (err) {
         console.error(err);
