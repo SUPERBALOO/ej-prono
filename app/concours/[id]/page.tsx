@@ -9,6 +9,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import AujourdHuiTab from "./components/AujourdHuiTab";
 import PlayerProfileModal from "@/components/PlayerProfileModal";
+import AdminContestEmailPanel from "@/components/AdminContestEmailPanel";
 import {
   getStoredAfterExtraTimeScore,
   getStoredPenaltyScore,
@@ -1946,6 +1947,13 @@ className="
                 </div>
               </div>
             </div>
+          )}
+
+          {isAdmin && concours && (
+            <AdminContestEmailPanel
+              concoursId={concoursId}
+              concoursName={concours.nom}
+            />
           )}
 
           {/* STATISTIQUES */}
