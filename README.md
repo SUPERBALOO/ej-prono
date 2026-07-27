@@ -16,6 +16,22 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Configuration Supabase
+
+La page de profil utilise un bucket Storage public pour les avatars.
+Exécutez [`supabase/avatar_storage.sql`](supabase/avatar_storage.sql) dans
+l’éditeur SQL Supabase afin de créer le bucket `avatars`, sa limite de 5 Mo
+et les politiques qui restreignent chaque utilisateur à son propre dossier.
+
+Le nom du bucket peut être personnalisé dans `.env.local` :
+
+```bash
+NEXT_PUBLIC_SUPABASE_AVATARS_BUCKET=avatars
+```
+
+Si vous utilisez un autre nom, remplacez également `avatars` dans le script
+SQL avant de l’exécuter.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

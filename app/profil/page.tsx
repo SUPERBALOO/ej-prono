@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -22,6 +27,38 @@ const GROUP_COMPANIES = [
 ];
 
 const OTHER_COMPANY_VALUE = "__OTHER__";
+const AVATAR_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_AVATARS_BUCKET ||
+  "avatars";
+const AVATAR_MIME_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+function getAvatarStoragePath(
+  publicUrl: string,
+  bucket: string,
+  userId: string
+) {
+  try {
+    const url = new URL(publicUrl);
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const markerIndex = url.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const path = decodeURIComponent(
+      url.pathname.slice(markerIndex + marker.length)
+    );
+
+    return path.startsWith(`${userId}/`) ? path : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function ProfilPage() {
   const router = useRouter();
@@ -38,15 +75,15 @@ export default function ProfilPage() {
 
   const [message, setMessage] = useState("");
   const [messageSecurite, setMessageSecurite] = useState("");
+  const [avatarUploading, setAvatarUploading] =
+    useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [nouveauMotDePasse, setNouveauMotDePasse] =
     useState("");
 
-  useEffect(() => {
-    chargerProfil();
-  }, []);
-
-  const chargerProfil = async () => {
+  const chargerProfil = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -91,7 +128,7 @@ export default function ProfilPage() {
       setIsAdmin(data.is_admin);
       setCreatedAt(data.created_at);
     }
-  };
+  }, [router]);
 
   const enregistrerPseudo = async () => {
     const {
@@ -161,6 +198,124 @@ export default function ProfilPage() {
       router.push("/dashboard");
     }, 1500);
   };
+
+  const uploaderAvatar = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    const extension = AVATAR_MIME_TYPES[file.type];
+
+    if (!extension) {
+      setMessage(
+        "Format non pris en charge. Utilisez une image JPG, PNG ou WebP."
+      );
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage("La photo doit faire moins de 5 Mo.");
+      return;
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.push("/connexion");
+      return;
+    }
+
+    setAvatarUploading(true);
+    setMessage("");
+
+    let uploadedPath: string | null = null;
+
+    try {
+      const previousAvatarPath = getAvatarStoragePath(
+        avatarUrl,
+        AVATAR_BUCKET,
+        user.id
+      );
+      const filePath =
+        `${user.id}/avatar-${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from(AVATAR_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: file.type,
+          });
+
+      if (uploadError) {
+        setMessage(
+          `Envoi impossible. Vérifiez le bucket Supabase « ${AVATAR_BUCKET} » et ses droits.`
+        );
+        return;
+      }
+
+      uploadedPath = filePath;
+
+      const { data } = supabase.storage
+        .from(AVATAR_BUCKET)
+        .getPublicUrl(filePath);
+
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ avatar_url: data.publicUrl })
+        .eq("id", user.id);
+
+      if (profileError) {
+        await supabase.storage
+          .from(AVATAR_BUCKET)
+          .remove([filePath]);
+        uploadedPath = null;
+        setMessage(
+          "La photo a été envoyée, mais le profil n'a pas pu être mis à jour."
+        );
+        return;
+      }
+
+      setAvatarUrl(data.publicUrl);
+
+      if (previousAvatarPath && previousAvatarPath !== filePath) {
+        const { error: removeError } = await supabase.storage
+          .from(AVATAR_BUCKET)
+          .remove([previousAvatarPath]);
+
+        if (removeError) {
+          console.error(removeError);
+        }
+      }
+
+      uploadedPath = null;
+      setMessage("Photo de profil mise à jour.");
+    } catch (error) {
+      console.error(error);
+
+      if (uploadedPath) {
+        await supabase.storage
+          .from(AVATAR_BUCKET)
+          .remove([uploadedPath]);
+      }
+
+      setMessage("Erreur pendant l’envoi de la photo.");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Le chargement est asynchrone et les mises à jour ont lieu après Supabase.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void chargerProfil();
+  }, [chargerProfil]);
 
   const changerMotDePasse = async () => {
     if (nouveauMotDePasse.length < 6) {
@@ -347,12 +502,14 @@ export default function ProfilPage() {
 
               <div className="mb-6">
                 <label className="block mb-2 text-[#c9a27e]">
-                  Lien de l'image avatar / photo
+                  Photo de profil
                 </label>
 
                 <div className="flex flex-col md:flex-row gap-4 md:items-center">
                   <div className="w-20 h-20 rounded-full bg-[#223246] overflow-hidden flex items-center justify-center text-2xl font-bold text-[#c9a27e]">
                     {avatarUrl ? (
+                      // Supabase fournit ici une URL publique dynamique.
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={avatarUrl}
                         alt={pseudo || "Avatar"}
@@ -363,27 +520,70 @@ export default function ProfilPage() {
                     )}
                   </div>
 
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        photoInputRef.current?.click()
+                      }
+                      disabled={avatarUploading}
+                      className="
+                        px-5
+                        py-3
+                        rounded-lg
+                        bg-[#223246]
+                        hover:bg-[#1a2838]
+                        disabled:opacity-60
+                        transition
+                      "
+                    >
+                      Choisir une photo
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        cameraInputRef.current?.click()
+                      }
+                      disabled={avatarUploading}
+                      className="
+                        px-5
+                        py-3
+                        rounded-lg
+                        bg-[#c9a27e]
+                        hover:bg-[#b58d69]
+                        disabled:opacity-60
+                        transition
+                      "
+                    >
+                      {avatarUploading
+                        ? "Envoi..."
+                        : "Prendre une photo"}
+                    </button>
+                  </div>
+
                   <input
-                    type="url"
-                    value={avatarUrl}
-                    onChange={(e) =>
-                      setAvatarUrl(e.target.value)
-                    }
-                    className="
-                      w-full
-                      p-3
-                      rounded-lg
-                      bg-white
-                      text-black
-                    "
-                    placeholder="https://exemple.com/photo.jpg"
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={uploaderAvatar}
+                    className="hidden"
+                  />
+
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    capture="user"
+                    onChange={uploaderAvatar}
+                    className="hidden"
                   />
                 </div>
 
                 <p className="mt-2 text-sm text-gray-400">
-                  Collez ici un lien direct vers une image en ligne.
-                  Ce n'est pas encore un envoi de fichier depuis le
-                  telephone.
+                  Sur téléphone, le bouton photo permet d&apos;ouvrir
+                  directement l&apos;appareil photo si le navigateur le
+                  propose.
                 </p>
               </div>
 
@@ -436,6 +636,7 @@ export default function ProfilPage() {
 
                 <button
                   onClick={enregistrerPseudo}
+                  disabled={avatarUploading}
                   className="
                     w-full md:w-auto
                     px-6
@@ -443,6 +644,7 @@ export default function ProfilPage() {
                     rounded-lg
                     bg-[#c9a27e]
                     hover:bg-[#b58d69]
+                    disabled:opacity-60
                     transition
                   "
                 >
@@ -489,7 +691,7 @@ export default function ProfilPage() {
               <PushReminderButton />
 
               <p className="text-sm text-gray-400 mt-4">
-                Sur iPhone, ajoutez EJ Prono a l'ecran d'accueil avant d'activer les rappels.
+                Sur iPhone, ajoutez EJ Prono à l&apos;écran d&apos;accueil avant d&apos;activer les rappels.
               </p>
 
             </div>
