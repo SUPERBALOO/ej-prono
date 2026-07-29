@@ -60,19 +60,24 @@ export async function POST(req: NextRequest) {
     const fifaAway =
       match.away_probability;
 
-    const PLAYER_WEIGHT = 0.50;
+    const PLAYER_PRIOR_SIZE = 40;
+    const MAX_PLAYER_WEIGHT = 0.25;
+    const playerWeight = Math.min(
+      MAX_PLAYER_WEIGHT,
+      total / (total + PLAYER_PRIOR_SIZE)
+    );
 
     const newHome =
-        fifaHome * (1 - PLAYER_WEIGHT) +
-        playerHome * PLAYER_WEIGHT;
+        fifaHome * (1 - playerWeight) +
+        playerHome * playerWeight;
 
     const newDraw =
-        fifaDraw * (1 - PLAYER_WEIGHT) +
-        playerDraw * PLAYER_WEIGHT;
+        fifaDraw * (1 - playerWeight) +
+        playerDraw * playerWeight;
 
     const newAway =
-        fifaAway * (1 - PLAYER_WEIGHT) +
-        playerAway * PLAYER_WEIGHT;
+        fifaAway * (1 - playerWeight) +
+        playerAway * playerWeight;
 
     await supabase
       .from("matches")

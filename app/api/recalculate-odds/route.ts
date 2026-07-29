@@ -433,19 +433,28 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const PLAYER_WEIGHT = 0.50;
+    // Les avis joueurs ne doivent pas renverser la cote de
+    // référence lorsque l'échantillon est encore très faible.
+    // Le poids progresse avec le nombre de participants et reste
+    // plafonné à 25 %, même lorsque le concours devient très actif.
+    const PLAYER_PRIOR_SIZE = 40;
+    const MAX_PLAYER_WEIGHT = 0.25;
+    const playerWeight = Math.min(
+      MAX_PLAYER_WEIGHT,
+      total / (total + PLAYER_PRIOR_SIZE)
+    );
 
     const newHome =
-      fifaHome * (1 - PLAYER_WEIGHT) +
-      playerHome * PLAYER_WEIGHT;
+      fifaHome * (1 - playerWeight) +
+      playerHome * playerWeight;
 
     const newDraw =
-      fifaDraw * (1 - PLAYER_WEIGHT) +
-      playerDraw * PLAYER_WEIGHT;
+      fifaDraw * (1 - playerWeight) +
+      playerDraw * playerWeight;
 
     const newAway =
-      fifaAway * (1 - PLAYER_WEIGHT) +
-      playerAway * PLAYER_WEIGHT;
+      fifaAway * (1 - playerWeight) +
+      playerAway * playerWeight;
 
     const newOdds = {
       cote_home: Number(
@@ -472,6 +481,8 @@ export async function POST(req: NextRequest) {
       success: true,
       updated: matchIds.length,
       odds: newOdds,
+      playerWeight,
+      predictionsCount: total,
     });
   } catch (error: unknown) {
     const message =
