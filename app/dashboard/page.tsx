@@ -145,6 +145,12 @@ export default function DashboardPage() {
           >
             👤 Mon Profil
           </Link>
+          <Link
+            href="/dashboard#actus-le-mans-fc"
+            className="p-3 rounded hover:bg-[#42546B]"
+          >
+            📰 Actus LMFC
+          </Link>
         </nav>
 
         <div className="p-4">

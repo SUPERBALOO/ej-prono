@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ExternalLink, Newspaper } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 type NewsItem = {
   title: string;
@@ -12,9 +13,11 @@ type NewsItem = {
   url: string;
 };
 
-export default function LeMansNewsPanel() {
+export default function LeMansNewsPanel({ compact = false }: { compact?: boolean }) {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [savingAlerts, setSavingAlerts] = useState(false);
 
   useEffect(() => {
     fetch("/api/le-mans-news")
@@ -22,10 +25,45 @@ export default function LeMansNewsPanel() {
       .then((result) => setNews(result.news || []))
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    loadPreference();
   }, []);
 
+  async function getAuthHeaders() {
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : null;
+  }
+
+  async function loadPreference() {
+    const headers = await getAuthHeaders();
+    if (!headers) return;
+    const response = await fetch("/api/push/news-preference", { headers });
+    const result = await response.json();
+    if (response.ok) setAlertsEnabled(result.enabled);
+  }
+
+  async function toggleAlerts() {
+    const headers = await getAuthHeaders();
+    if (!headers) return;
+    setSavingAlerts(true);
+    const response = await fetch("/api/push/news-preference", {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: !alertsEnabled }),
+    });
+    const result = await response.json();
+    setSavingAlerts(false);
+    if (!response.ok) {
+      alert(result.error || "Impossible de modifier les alertes.");
+      return;
+    }
+    setAlertsEnabled(result.enabled);
+  }
+
   return (
-    <section className="mb-8 rounded-xl bg-[#314357] p-6">
+    <section id={compact ? undefined : "actus-le-mans-fc"} className="mb-8 scroll-mt-4 rounded-xl bg-[#314357] p-6">
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Newspaper className="text-[#C7A27F]" />
@@ -34,6 +72,10 @@ export default function LeMansNewsPanel() {
           </h3>
         </div>
 
+        <div className="flex flex-wrap items-center justify-end gap-3">
+        <button type="button" onClick={toggleAlerts} disabled={savingAlerts} className="rounded-lg bg-[#C7A27F] px-3 py-2 text-sm font-bold text-[#1E3047] disabled:opacity-60">
+          {savingAlerts ? "Enregistrement…" : alertsEnabled ? "🔔 Alertes activées" : "🔕 M'alerter des nouvelles actus"}
+        </button>
         <a
           href="https://www.lemansfc.fr/index.php?section=actualites"
           target="_blank"
@@ -42,6 +84,7 @@ export default function LeMansNewsPanel() {
         >
           Toutes les actualités
         </a>
+        </div>
       </div>
 
       {loading && (
@@ -58,7 +101,7 @@ export default function LeMansNewsPanel() {
 
       {!!news.length && (
         <div className="grid gap-4 lg:grid-cols-3">
-          {news.map((item) => (
+          {news.slice(0, compact ? 1 : 3).map((item) => (
             <a
               key={item.url}
               href={item.url}

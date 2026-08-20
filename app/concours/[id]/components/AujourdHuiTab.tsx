@@ -7,6 +7,7 @@ import {
   shouldShowAfterExtraTimeScore,
   shouldShowPenaltyScore,
 } from "@/lib/matchScores";
+import LeMansNewsPanel from "@/components/LeMansNewsPanel";
 
 interface Props {
   matchs48h: any[];
@@ -183,6 +184,8 @@ export default function AujourdHuiTab({
       <h2 className="text-3xl md:text-3xl font-bold">
         🔥 Aujourd'hui
       </h2>
+
+      <LeMansNewsPanel compact />
 
       {matchs48h.length === 0 && (
         <div className="bg-[#42546B] rounded-2xl p-6 text-center">
