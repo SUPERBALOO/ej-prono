@@ -512,10 +512,23 @@ async function fetchApiFootballFixtures(competition: any) {
 
   const data = await response.json();
 
-  if (!response.ok || !Array.isArray(data.response)) {
+  const apiErrors = data?.errors;
+  const hasApiErrors =
+    typeof apiErrors === "string"
+      ? apiErrors.length > 0
+      : apiErrors &&
+        typeof apiErrors === "object" &&
+        Object.keys(apiErrors).length > 0;
+
+  if (
+    !response.ok ||
+    !Array.isArray(data.response) ||
+    hasApiErrors
+  ) {
     throw new Error(
       data?.message ||
         data?.errors?.requests ||
+        data?.errors?.plan ||
         "Aucun match trouve"
     );
   }
@@ -708,8 +721,6 @@ export async function importCompetitionMatches({
   if (apiProvider === "api-football") {
     const apiCompetition =
       withApiFootballDefaults(competitionContext);
-    const { rawCount, fixtures } =
-      await fetchApiFootballFixtures(apiCompetition);
     const teamStrengths =
       await getCompetitionTeamStrengths(
         supabase,
@@ -719,39 +730,86 @@ export async function importCompetitionMatches({
     teamStrengthsMap =
       buildTeamStrengthMap(teamStrengths);
 
-    validMatches = fixtures
-      .filter(
-        (fixture) =>
-          fixture.fixture?.id &&
-          fixture.fixture?.date &&
-          fixture.teams?.home?.name &&
-          fixture.teams?.away?.name
-      )
-      .map((fixture) => {
-        const status = getApiFootballStatus(
-          fixture.fixture?.status?.short
-        );
+    try {
+      const { rawCount, fixtures } =
+        await fetchApiFootballFixtures(apiCompetition);
 
-        return {
-          api_match_id: fixture.fixture!.id,
-          concours_id: concoursId,
-          home_team: fixture.teams!.home!.name,
-          away_team: fixture.teams!.away!.name,
-          home_logo: fixture.teams!.home!.logo ?? null,
-          away_logo: fixture.teams!.away!.logo ?? null,
-          match_date: fixture.fixture!.date,
-          phase: fixture.league?.round ?? null,
-          groupe: null,
-          status,
-          live_status:
-            fixture.fixture?.status?.short ?? null,
-          live_minute:
-            fixture.fixture?.status?.elapsed ?? null,
-          ...getApiFootballScoreUpdate(fixture, status),
-        };
-      });
+      validMatches = fixtures
+        .filter(
+          (fixture) =>
+            fixture.fixture?.id &&
+            fixture.fixture?.date &&
+            fixture.teams?.home?.name &&
+            fixture.teams?.away?.name
+        )
+        .map((fixture) => {
+          const status = getApiFootballStatus(
+            fixture.fixture?.status?.short
+          );
 
-    ignoredCount = rawCount - validMatches.length;
+          return {
+            api_match_id: fixture.fixture!.id,
+            concours_id: concoursId,
+            home_team: fixture.teams!.home!.name,
+            away_team: fixture.teams!.away!.name,
+            home_logo: fixture.teams!.home!.logo ?? null,
+            away_logo: fixture.teams!.away!.logo ?? null,
+            match_date: fixture.fixture!.date,
+            phase: fixture.league?.round ?? null,
+            groupe: null,
+            status,
+            live_status:
+              fixture.fixture?.status?.short ?? null,
+            live_minute:
+              fixture.fixture?.status?.elapsed ?? null,
+            ...getApiFootballScoreUpdate(fixture, status),
+          };
+        });
+
+      ignoredCount = rawCount - validMatches.length;
+    } catch (apiFootballError) {
+      if (!competition.api_competition_id) {
+        throw apiFootballError;
+      }
+
+      console.warn(
+        "API-Football indisponible, utilisation de football-data.org",
+        apiFootballError
+      );
+
+      const { rawCount, matches: fallbackMatches } =
+        await fetchFootballDataMatches(competition);
+      const resolvedTeams =
+        buildResolvedTeamMap(fallbackMatches);
+
+      validMatches = fallbackMatches
+        .filter(
+          (match) =>
+            resolvedTeams.get(match.id)?.home?.name &&
+            resolvedTeams.get(match.id)?.away?.name
+        )
+        .map((match) => {
+          const teams = resolvedTeams.get(match.id)!;
+
+          return {
+            api_match_id: match.id,
+            concours_id: concoursId,
+            home_team: teams.home!.name,
+            away_team: teams.away!.name,
+            home_logo: teams.home!.crest,
+            away_logo: teams.away!.crest,
+            match_date: match.utcDate,
+            phase: match.stage ?? null,
+            groupe: match.group ?? null,
+            status: getFootballDataStatus(match.status),
+            live_status: null,
+            live_minute: null,
+            ...getMatchScoreUpdate(match.score),
+          };
+        });
+
+      ignoredCount = rawCount - validMatches.length;
+    }
   } else {
     const { rawCount, matches: apiMatches } =
       await fetchFootballDataMatches(competition);
