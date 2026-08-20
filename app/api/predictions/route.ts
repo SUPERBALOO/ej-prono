@@ -349,6 +349,7 @@ export async function GET(req: NextRequest) {
               .from("matches")
               .select("id,api_match_id,concours_id")
               .in("api_match_id", apiMatchIds)
+              .neq("concours_id", concoursId)
           : { data: [], error: null };
 
       if (linkedError) {

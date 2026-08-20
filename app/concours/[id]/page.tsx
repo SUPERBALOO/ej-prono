@@ -130,53 +130,58 @@ async function chargerConcours(showLoader = true) {
     )
     .catch(console.error);
   
-  const {
-  data: { user },
-} = await supabase.auth.getUser();
-if (!user) return;
-const { data: profil } = await supabase
+const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+const user = session?.user;
+
+if (!user) {
+  router.push("/connexion");
+  return;
+}
+
+const matchesPromise = supabase
+  .from("matches")
+  .select("*")
+  .eq("concours_id", concoursId)
+  .order("match_date", { ascending: true });
+
+const profilePromise = supabase
   .from("profiles")
   .select("is_admin")
   .eq("id", user.id)
   .single();
-
-const isAdminUser = profil?.is_admin || false;
-
-const {
-  data: { session },
-} = await supabase.auth.getSession();
 
 const pointsMap: any = {};
 let userPronos: any[] = [];
 
 if (session?.access_token) {
   try {
-    const predictionsResponse = await fetch(
-      `/api/predictions?concoursId=${concoursId}&t=${Date.now()}`,
-      {
-        cache: "no-store",
-        headers: {
-          Authorization:
-            `Bearer ${session.access_token}`,
-        },
-      }
-    );
+    const authHeaders = {
+      Authorization: `Bearer ${session.access_token}`,
+    };
+
+    const [predictionsResponse, pointsResponse] =
+      await Promise.all([
+        fetch(
+          `/api/predictions?concoursId=${concoursId}&t=${Date.now()}`,
+          {
+            cache: "no-store",
+            headers: authHeaders,
+          }
+        ),
+        fetch(
+          `/api/points/me?concoursId=${concoursId}`,
+          { headers: authHeaders }
+        ),
+      ]);
 
     const predictionsResult =
       await predictionsResponse.json();
 
     userPronos =
       predictionsResult.predictions || [];
-
-    const pointsResponse = await fetch(
-      `/api/points/me?concoursId=${concoursId}`,
-      {
-        headers: {
-          Authorization:
-            `Bearer ${session.access_token}`,
-        },
-      }
-    );
 
     const pointsResult =
       await pointsResponse.json();
@@ -195,11 +200,15 @@ if (session?.access_token) {
 setUserPointsByMatch(pointsMap);
 
   // Chargement des matchs
-  let { data: matchsData } = await supabase
-    .from("matches")
-    .select("*")
-    .eq("concours_id", concoursId)
-    .order("match_date", { ascending: true });
+  const [
+    { data: matchsData },
+    { data: profil },
+  ] = await Promise.all([
+    matchesPromise,
+    profilePromise,
+  ]);
+
+  const isAdminUser = profil?.is_admin || false;
 
   const concoursMatchIds = new Set(
     (matchsData || []).map((match: any) => match.id)
@@ -209,19 +218,9 @@ setUserPointsByMatch(pointsMap);
     (p: any) => concoursMatchIds.has(p.match_id)
   );
 
-  const { data: directConcoursPronos } = await supabase
-    .from("predictions")
-    .select("*")
-    .eq("user_id", user.id)
-    .in("match_id", Array.from(concoursMatchIds));
-
   const pronosByMatch = new Map<string, any>();
 
   concoursPronos.forEach((p: any) => {
-    pronosByMatch.set(p.match_id, p);
-  });
-
-  (directConcoursPronos || []).forEach((p: any) => {
     pronosByMatch.set(p.match_id, p);
   });
 
