@@ -162,26 +162,10 @@ if (session?.access_token) {
       Authorization: `Bearer ${session.access_token}`,
     };
 
-    const [predictionsResponse, pointsResponse] =
-      await Promise.all([
-        fetch(
-          `/api/predictions?concoursId=${concoursId}&t=${Date.now()}`,
-          {
-            cache: "no-store",
-            headers: authHeaders,
-          }
-        ),
-        fetch(
-          `/api/points/me?concoursId=${concoursId}`,
-          { headers: authHeaders }
-        ),
-      ]);
-
-    const predictionsResult =
-      await predictionsResponse.json();
-
-    userPronos =
-      predictionsResult.predictions || [];
+    const pointsResponse = await fetch(
+      `/api/points/me?concoursId=${concoursId}`,
+      { headers: authHeaders }
+    );
 
     const pointsResult =
       await pointsResponse.json();
@@ -214,13 +198,22 @@ setUserPointsByMatch(pointsMap);
     (matchsData || []).map((match: any) => match.id)
   );
 
-  const concoursPronos = userPronos.filter(
-    (p: any) => concoursMatchIds.has(p.match_id)
-  );
+  const { data: directConcoursPronos } =
+    concoursMatchIds.size
+      ? await supabase
+          .from("predictions")
+          .select(
+            "match_id,pred_home,pred_away,locked_odds,prediction_odds"
+          )
+          .eq("user_id", user.id)
+          .in("match_id", Array.from(concoursMatchIds))
+      : { data: [] };
+
+  userPronos = directConcoursPronos || [];
 
   const pronosByMatch = new Map<string, any>();
 
-  concoursPronos.forEach((p: any) => {
+  userPronos.forEach((p: any) => {
     pronosByMatch.set(p.match_id, p);
   });
 
