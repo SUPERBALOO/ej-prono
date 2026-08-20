@@ -153,35 +153,50 @@ const profilePromise = supabase
   .eq("id", user.id)
   .single();
 
+const concoursPromise = supabase
+  .from("concours")
+  .select("*")
+  .eq("id", concoursId)
+  .single();
+
+const participantsPromise = supabase
+  .from("participants_concours")
+  .select(`
+    id,
+    joueur_id,
+    points,
+    created_at,
+    profiles:joueur_id (
+      pseudo,
+      avatar_url,
+      first_name,
+      last_name,
+      company
+    )
+  `)
+  .eq("concours_id", concoursId);
+
 const pointsMap: any = {};
 let userPronos: any[] = [];
+let pointsPromise: Promise<any> = Promise.resolve({
+  points: [],
+});
 
 if (session?.access_token) {
-  try {
-    const authHeaders = {
-      Authorization: `Bearer ${session.access_token}`,
-    };
-
-    const pointsResponse = await fetch(
-      `/api/points/me?concoursId=${concoursId}`,
-      { headers: authHeaders }
-    );
-
-    const pointsResult =
-      await pointsResponse.json();
-
-    (pointsResult.points || []).forEach((row: any) => {
-      pointsMap[row.match_id] = {
-        points: row.points,
-        exact_score: row.exact_score,
-      };
+  pointsPromise = fetch(
+    `/api/points/me?concoursId=${concoursId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }
+  )
+    .then((response) => response.json())
+    .catch((error) => {
+      console.error(error);
+      return { points: [] };
     });
-  } catch (error) {
-    console.error(error);
-  }
 }
-
-setUserPointsByMatch(pointsMap);
 
   // Chargement des matchs
   const [
@@ -198,16 +213,36 @@ setUserPointsByMatch(pointsMap);
     (matchsData || []).map((match: any) => match.id)
   );
 
-  const { data: directConcoursPronos } =
-    concoursMatchIds.size
-      ? await supabase
-          .from("predictions")
-          .select(
-            "match_id,pred_home,pred_away,locked_odds,prediction_odds"
-          )
-          .eq("user_id", user.id)
-          .in("match_id", Array.from(concoursMatchIds))
-      : { data: [] };
+  const directPredictionsPromise = concoursMatchIds.size
+    ? supabase
+        .from("predictions")
+        .select(
+          "match_id,pred_home,pred_away,locked_odds,prediction_odds"
+        )
+        .eq("user_id", user.id)
+        .in("match_id", Array.from(concoursMatchIds))
+    : Promise.resolve({ data: [] });
+
+  const [
+    { data: directConcoursPronos },
+    { data: concoursData },
+    { data: participantsData },
+    pointsResult,
+  ] = await Promise.all([
+    directPredictionsPromise,
+    concoursPromise,
+    participantsPromise,
+    pointsPromise,
+  ]);
+
+  (pointsResult.points || []).forEach((row: any) => {
+    pointsMap[row.match_id] = {
+      points: row.points,
+      exact_score: row.exact_score,
+    };
+  });
+
+  setUserPointsByMatch(pointsMap);
 
   userPronos = directConcoursPronos || [];
 
@@ -279,12 +314,10 @@ chargerDetailsAujourdhui(prochainsMatchs);
 
 
 if (!isAdminUser) {
-  const { data: inscription } = await supabase
-    .from("participants_concours")
-    .select("id")
-    .eq("concours_id", concoursId)
-    .eq("joueur_id", user.id)
-    .maybeSingle();
+  const inscription = (participantsData || []).find(
+    (participant: any) =>
+      participant.joueur_id === user.id
+  );
 
   if (!inscription) {
     alert("Vous n'avez pas accès à ce concours.");
@@ -293,34 +326,9 @@ if (!isAdminUser) {
   }
 }
 
-  // Chargement concours
-  const { data: concoursData } = await supabase
-    .from("concours")
-    .select("*")
-    .eq("id", concoursId)
-    .single();
-
   if (concoursData) {
     setConcours(concoursData);
   }
-
-  // Participants
-  const { data: participantsData } = await supabase
-    .from("participants_concours")
-    .select(`
-      id,
-      joueur_id,
-      points,
-      created_at,
-      profiles:joueur_id (
-        pseudo,
-        avatar_url,
-        first_name,
-        last_name,
-        company
-      )
-    `)
-    .eq("concours_id", concoursId);
 
   setParticipants(
     (participantsData || []).sort(
@@ -330,16 +338,16 @@ if (!isAdminUser) {
 
   // Créateur
   if (concoursData?.createur) {
-
-    const { data: createurData } = await supabase
+    supabase
       .from("profiles")
       .select("pseudo")
       .eq("id", concoursData.createur)
-      .single();
-
-    setCreateurPseudo(
-      createurData?.pseudo || ""
-    );
+      .single()
+      .then(({ data: createurData }) => {
+        setCreateurPseudo(
+          createurData?.pseudo || ""
+        );
+      });
   }
 
   setIsAdmin(isAdminUser);
