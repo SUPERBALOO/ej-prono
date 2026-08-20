@@ -8,6 +8,7 @@ import { supabase } from "../../lib/supabase/client";
 import AdminPushPanel from "@/components/AdminPushPanel";
 import InstallAppButton from "@/components/InstallAppButton";
 import PushReminderButton from "@/components/PushReminderButton";
+import LeMansNewsPanel from "@/components/LeMansNewsPanel";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -176,6 +177,8 @@ export default function DashboardPage() {
           <p className="text-[#C7A27F] mb-8">
             Bienvenue sur EJ Prono
           </p>
+
+          <LeMansNewsPanel />
 
           <div className="mb-8 rounded-xl bg-[#314357] p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
