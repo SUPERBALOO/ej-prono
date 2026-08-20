@@ -160,10 +160,18 @@ export default function AujourdHuiTab({
     );
   }
 
+  const finalPhases = new Set([
+    "LAST_16",
+    "QUARTER_FINALS",
+    "SEMI_FINALS",
+    "THIRD_PLACE",
+    "FINAL",
+  ]);
   const hasFinalPhaseMatch = matchs48h.some(
     (match) =>
-      match.phase &&
-      match.phase !== "GROUP_STAGE"
+      finalPhases.has(
+        String(match.phase || "").toUpperCase()
+      )
   );
 
   function getResultIcon(match: any, equipe: string) {
