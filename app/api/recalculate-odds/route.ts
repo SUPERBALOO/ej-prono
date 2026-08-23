@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
+  applyPlayerInfluence,
   buildRankingsMap,
   buildTeamStrengthMap,
-  getClubMatchOddsUpdate,
+  getDynamicClubMatchOddsUpdate,
   getMatchOddsUpdate,
 } from "@/lib/odds";
 
@@ -189,10 +190,36 @@ async function recalculateMissingContestOdds(
       );
     }
 
+    const { data: relatedContests } = await supabase
+      .from("concours")
+      .select("id")
+      .eq("competition_id", competition.id);
+    const relatedContestIds = (relatedContests || []).map(
+      (relatedContest: any) => relatedContest.id
+    );
+    const { data: competitionMatches } = relatedContestIds.length
+      ? await supabase
+          .from("matches")
+          .select(
+            "api_match_id,home_team,away_team,match_date,home_score,away_score,status"
+          )
+          .in("concours_id", relatedContestIds)
+          .eq("status", "finished")
+      : { data: [] };
+    const uniqueCompletedMatches = new Map<string, any>();
+
+    for (const completedMatch of competitionMatches || []) {
+      const fixtureKey =
+        completedMatch.api_match_id ||
+        `${completedMatch.home_team}|${completedMatch.away_team}|${completedMatch.match_date}`;
+      uniqueCompletedMatches.set(fixtureKey, completedMatch);
+    }
+
     for (const match of matchesToUpdate) {
-      const oddsUpdate = getClubMatchOddsUpdate(
+      const oddsUpdate = getDynamicClubMatchOddsUpdate(
         match,
-        strengthsMap
+        strengthsMap,
+        [...uniqueCompletedMatches.values()]
       );
 
       if (oddsUpdate) {
@@ -221,6 +248,18 @@ async function recalculateMissingContestOdds(
   let updated = 0;
   let skipped = 0;
 
+  const matchIdsToUpdate = matchesToUpdate.map(
+    (match: any) => match.id
+  );
+  const { data: contestPredictions } = matchIdsToUpdate.length
+    ? await supabase
+        .from("predictions")
+        .select(
+          "match_id,user_id,pred_home,pred_away,created_at"
+        )
+        .in("match_id", matchIdsToUpdate)
+    : { data: [] };
+
   for (const match of matchesToUpdate) {
     const oddsUpdate = oddsByMatch.get(match.id);
 
@@ -229,9 +268,39 @@ async function recalculateMissingContestOdds(
       continue;
     }
 
+    const predictionsByUser = new Map<string, any>();
+    for (const prediction of contestPredictions || []) {
+      if (prediction.match_id !== match.id) continue;
+
+      const existing = predictionsByUser.get(prediction.user_id);
+      if (
+        !existing ||
+        String(prediction.created_at) > String(existing.created_at)
+      ) {
+        predictionsByUser.set(prediction.user_id, prediction);
+      }
+    }
+
+    const choices = { home: 0, draw: 0, away: 0 };
+    for (const prediction of predictionsByUser.values()) {
+      if (prediction.pred_home > prediction.pred_away) choices.home++;
+      else if (prediction.pred_home < prediction.pred_away)
+        choices.away++;
+      else choices.draw++;
+    }
+    const playerOdds = applyPlayerInfluence(oddsUpdate, choices);
+    const finalOddsUpdate = playerOdds
+      ? {
+          ...oddsUpdate,
+          cote_home: playerOdds.cote_home,
+          cote_draw: playerOdds.cote_draw,
+          cote_away: playerOdds.cote_away,
+        }
+      : oddsUpdate;
+
     const { error } = await supabase
       .from("matches")
-      .update(oddsUpdate)
+      .update(finalOddsUpdate)
       .eq("id", match.id);
 
     if (error) {
@@ -412,10 +481,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const playerHome = homeBets / total;
-    const playerDraw = drawBets / total;
-    const playerAway = awayBets / total;
-
     const fifaHome =
       match.home_probability;
 
@@ -437,38 +502,26 @@ export async function POST(req: NextRequest) {
     // référence lorsque l'échantillon est encore très faible.
     // Le poids progresse avec le nombre de participants et reste
     // plafonné à 25 %, même lorsque le concours devient très actif.
-    const PLAYER_PRIOR_SIZE = 40;
-    const MAX_PLAYER_WEIGHT = 0.25;
-    const playerWeight = Math.min(
-      MAX_PLAYER_WEIGHT,
-      total / (total + PLAYER_PRIOR_SIZE)
+    const influencedOdds = applyPlayerInfluence(
+      {
+        home_probability: fifaHome,
+        draw_probability: fifaDraw,
+        away_probability: fifaAway,
+      },
+      { home: homeBets, draw: drawBets, away: awayBets }
     );
 
-    const newHome =
-      fifaHome * (1 - playerWeight) +
-      playerHome * playerWeight;
-
-    const newDraw =
-      fifaDraw * (1 - playerWeight) +
-      playerDraw * playerWeight;
-
-    const newAway =
-      fifaAway * (1 - playerWeight) +
-      playerAway * playerWeight;
+    if (!influencedOdds) {
+      return NextResponse.json({
+        success: true,
+        message: "Pas assez de paris pour ajuster les cotes",
+      });
+    }
 
     const newOdds = {
-      cote_home: Number(
-        (1 / newHome).toFixed(2)
-      ),
-
-      cote_draw: Number(
-        (1 / newDraw).toFixed(2)
-      ),
-
-      cote_away: Number(
-        (1 / newAway).toFixed(2)
-      ),
-
+      cote_home: influencedOdds.cote_home,
+      cote_draw: influencedOdds.cote_draw,
+      cote_away: influencedOdds.cote_away,
       odds_updated_at: new Date().toISOString(),
     };
 
@@ -481,7 +534,7 @@ export async function POST(req: NextRequest) {
       success: true,
       updated: matchIds.length,
       odds: newOdds,
-      playerWeight,
+      playerWeight: influencedOdds.playerWeight,
       predictionsCount: total,
     });
   } catch (error: unknown) {

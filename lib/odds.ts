@@ -9,6 +9,15 @@ export type TeamStrength = {
   homeBonus: number;
 };
 
+export type CompletedClubMatch = {
+  home_team: string;
+  away_team: string;
+  match_date: string;
+  home_score: number | null;
+  away_score: number | null;
+  status?: string | null;
+};
+
 export function normalizeTeamName(name: string) {
   const normalized = name
     .toLowerCase()
@@ -198,5 +207,213 @@ export function getClubMatchOddsUpdate(
     cote_draw: odds.coteDraw,
     cote_away: odds.coteAway,
     odds_updated_at: new Date().toISOString(),
+  };
+}
+
+type CurrentTeamStats = {
+  played: number;
+  points: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  recent: Array<{
+    date: number;
+    points: number;
+    goalDifference: number;
+  }>;
+};
+
+function getCurrentTeamStats(
+  matches: CompletedClubMatch[],
+  beforeDate: string
+) {
+  const stats = new Map<string, CurrentTeamStats>();
+  const cutoff = new Date(beforeDate).getTime();
+
+  function getTeam(teamName: string) {
+    const key = normalizeTeamName(teamName);
+    const existing = stats.get(key);
+    if (existing) return existing;
+
+    const created: CurrentTeamStats = {
+      played: 0,
+      points: 0,
+      goalsFor: 0,
+      goalsAgainst: 0,
+      recent: [],
+    };
+    stats.set(key, created);
+    return created;
+  }
+
+  for (const match of matches) {
+    const matchTime = new Date(match.match_date).getTime();
+    if (
+      !Number.isFinite(matchTime) ||
+      matchTime >= cutoff ||
+      match.home_score == null ||
+      match.away_score == null ||
+      (match.status && match.status !== "finished")
+    ) {
+      continue;
+    }
+
+    const home = getTeam(match.home_team);
+    const away = getTeam(match.away_team);
+    const homePoints =
+      match.home_score > match.away_score
+        ? 3
+        : match.home_score === match.away_score
+          ? 1
+          : 0;
+    const awayPoints =
+      match.away_score > match.home_score
+        ? 3
+        : match.away_score === match.home_score
+          ? 1
+          : 0;
+
+    home.played++;
+    home.points += homePoints;
+    home.goalsFor += match.home_score;
+    home.goalsAgainst += match.away_score;
+    home.recent.push({
+      date: matchTime,
+      points: homePoints,
+      goalDifference: match.home_score - match.away_score,
+    });
+
+    away.played++;
+    away.points += awayPoints;
+    away.goalsFor += match.away_score;
+    away.goalsAgainst += match.home_score;
+    away.recent.push({
+      date: matchTime,
+      points: awayPoints,
+      goalDifference: match.away_score - match.home_score,
+    });
+  }
+
+  return stats;
+}
+
+function getFormAdjustment(stats?: CurrentTeamStats) {
+  if (!stats?.recent.length) return 0;
+
+  const recent = [...stats.recent]
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 5);
+  const pointsPerGame =
+    recent.reduce((total, result) => total + result.points, 0) /
+    recent.length;
+  const goalDifferencePerGame =
+    recent.reduce(
+      (total, result) => total + result.goalDifference,
+      0
+    ) / recent.length;
+  const reliability = recent.length / 5;
+  const pointsAdjustment =
+    ((pointsPerGame - 1.5) / 1.5) * 90;
+  const goalAdjustment =
+    (Math.max(-2, Math.min(2, goalDifferencePerGame)) / 2) *
+    30;
+
+  return (pointsAdjustment + goalAdjustment) * reliability;
+}
+
+export function buildCurrentSeasonStrengthMap(
+  previousStrengths: Map<string, TeamStrength>,
+  completedMatches: CompletedClubMatch[],
+  beforeDate: string
+) {
+  const currentStats = getCurrentTeamStats(
+    completedMatches,
+    beforeDate
+  );
+  const rankedTeams = [...currentStats.entries()].sort(
+    ([nameA, a], [nameB, b]) =>
+      b.points - a.points ||
+      b.goalsFor - b.goalsAgainst -
+        (a.goalsFor - a.goalsAgainst) ||
+      b.goalsFor - a.goalsFor ||
+      nameA.localeCompare(nameB)
+  );
+  const currentRanks = new Map(
+    rankedTeams.map(([teamName], index) => [teamName, index + 1])
+  );
+  const dynamicStrengths = new Map<string, TeamStrength>();
+
+  for (const [teamName, previous] of previousStrengths) {
+    const stats = currentStats.get(teamName);
+    const currentRank = currentRanks.get(teamName);
+    if (!stats || !currentRank) {
+      dynamicStrengths.set(teamName, previous);
+      continue;
+    }
+
+    const currentStandingWeight = Math.min(
+      0.65,
+      (stats.played / 8) * 0.65
+    );
+    const currentStrength = getStrengthPointsFromRank(currentRank);
+    const blendedStrength =
+      previous.points * (1 - currentStandingWeight) +
+      currentStrength * currentStandingWeight +
+      getFormAdjustment(stats);
+
+    dynamicStrengths.set(teamName, {
+      rank: currentRank,
+      points: blendedStrength,
+      homeBonus: previous.homeBonus,
+    });
+  }
+
+  return dynamicStrengths;
+}
+
+export function getDynamicClubMatchOddsUpdate(
+  match: {
+    home_team: string;
+    away_team: string;
+    match_date: string;
+  },
+  previousStrengths: Map<string, TeamStrength>,
+  completedMatches: CompletedClubMatch[]
+) {
+  const strengths = buildCurrentSeasonStrengthMap(
+    previousStrengths,
+    completedMatches,
+    match.match_date
+  );
+  return getClubMatchOddsUpdate(match, strengths);
+}
+
+export function applyPlayerInfluence(
+  baseline: {
+    home_probability: number;
+    draw_probability: number;
+    away_probability: number;
+  },
+  choices: { home: number; draw: number; away: number }
+) {
+  const total = choices.home + choices.draw + choices.away;
+  if (total < 2) return null;
+
+  const playerWeight = Math.min(0.25, total / (total + 40));
+  const homeProbability =
+    baseline.home_probability * (1 - playerWeight) +
+    (choices.home / total) * playerWeight;
+  const drawProbability =
+    baseline.draw_probability * (1 - playerWeight) +
+    (choices.draw / total) * playerWeight;
+  const awayProbability =
+    baseline.away_probability * (1 - playerWeight) +
+    (choices.away / total) * playerWeight;
+
+  return {
+    cote_home: Number((1 / homeProbability).toFixed(2)),
+    cote_draw: Number((1 / drawProbability).toFixed(2)),
+    cote_away: Number((1 / awayProbability).toFixed(2)),
+    playerWeight,
+    predictionsCount: total,
   };
 }
