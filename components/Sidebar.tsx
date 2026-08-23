@@ -24,6 +24,7 @@ const menuItems = [
   { label: "Concours", href: "/concours", icon: "🏆" },
   { label: "Pronostics", href: "/pronostics", icon: "📝" },
   { label: "Classement", href: "/classement", icon: "🥇" },
+  { label: "Infos Ligue 1", href: "/ligue-1", icon: "⚽" },
   { label: "Mon profil", href: "/profil", icon: "👤" },
   { label: "Actus LMFC", href: "/dashboard#actus-le-mans-fc", icon: "📰" },
 ];

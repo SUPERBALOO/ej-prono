@@ -140,6 +140,13 @@ export default function DashboardPage() {
           </Link>
 
           <Link
+            href="/ligue-1"
+            className="p-3 rounded hover:bg-[#42546B]"
+          >
+            ⚽ Infos Ligue 1
+          </Link>
+
+          <Link
             href="/profil"
             className="p-3 rounded hover:bg-[#42546B]"
           >
