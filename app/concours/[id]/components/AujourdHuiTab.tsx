@@ -450,6 +450,14 @@ export default function AujourdHuiTab({
                 💰 Cotes
               </h3>
 
+              {`${match.home_team} ${match.away_team}`
+                .toLowerCase()
+                .includes("le mans") && (
+                <div className="mb-3 inline-flex rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-[#1E3047]">
+                  ⚡ Cote boostée x2 si victoire du Mans FC
+                </div>
+              )}
+
               {renderOddsRow(match)}
 
             </div>

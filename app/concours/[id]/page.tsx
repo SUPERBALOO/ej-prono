@@ -2299,7 +2299,16 @@ className="
 
 
             <div className="flex justify-start lg:justify-center">
-              {renderOddsRow(match)}
+              <div>
+                {`${match.home_team} ${match.away_team}`
+                  .toLowerCase()
+                  .includes("le mans") && (
+                  <div className="mb-2 inline-flex rounded-full bg-amber-400 px-3 py-1 text-xs font-bold text-[#1E3047]">
+                    ⚡ Cote boostée x2 si victoire du Mans FC
+                  </div>
+                )}
+                {renderOddsRow(match)}
+              </div>
             </div>
 
 

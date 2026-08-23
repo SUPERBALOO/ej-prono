@@ -9,6 +9,7 @@ import {
   getApiFootballScoreUpdate,
   getMatchScoreUpdate,
 } from "@/lib/matchScores";
+import { calculatePoints } from "@/lib/calculatePoints";
 
 const stageOrder = [
   "GROUP_STAGE",
@@ -901,6 +902,12 @@ export async function importCompetitionMatches({
       oddsSkipped++;
     } else {
       oddsUpdated++;
+    }
+  }
+
+  for (const match of importedMatches || []) {
+    if (match.status === "finished") {
+      await calculatePoints(match.id);
     }
   }
 
