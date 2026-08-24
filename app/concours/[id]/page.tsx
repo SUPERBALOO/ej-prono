@@ -51,6 +51,7 @@ export default function ConcoursDetailPage() {
   const [matchs48h, setMatchs48h] = useState<any[]>([]);
   const [tendances, setTendances] = useState<any>({});
   const [formesEquipes, setFormesEquipes] = useState<any>({});
+  const [leagueStandings, setLeagueStandings] = useState<any[]>([]);
   const [
     notificationPermission,
     setNotificationPermission,
@@ -127,6 +128,13 @@ async function chargerConcours(showLoader = true) {
     .then((response) => response.json())
     .then((rankingData) =>
       setClassement(rankingData)
+    )
+    .catch(console.error);
+
+  fetch("/api/league-stats", { cache: "no-store" })
+    .then((response) => response.json())
+    .then((leagueData) =>
+      setLeagueStandings(leagueData.standings || [])
     )
     .catch(console.error);
   
@@ -1203,6 +1211,75 @@ function renderOddsRow(match: any) {
         <span className="tabular-nums">
           {match.cote_away ?? "--"}
         </span>
+      </div>
+    </div>
+  );
+}
+
+function normalizeClubName(name: string) {
+  return String(name || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function renderTeamSportingInfo(teamName: string) {
+  const team = leagueStandings.find(
+    (standing: any) =>
+      normalizeClubName(standing.team) ===
+      normalizeClubName(teamName)
+  );
+
+  if (!team) {
+    return (
+      <div className="rounded-xl bg-[#33465D] p-3 text-sm text-gray-300">
+        <span className="font-semibold text-white">{teamName}</span>
+        <div className="mt-1">Classement en cours de mise à jour</div>
+      </div>
+    );
+  }
+
+  const formColors: Record<string, string> = {
+    W: "bg-green-600",
+    D: "bg-amber-500",
+    L: "bg-red-600",
+  };
+
+  return (
+    <div className="rounded-xl bg-[#33465D] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-semibold">{teamName}</span>
+        <span className="rounded-full bg-[#1E3047] px-3 py-1 text-xs font-bold text-[#D8AA82]">
+          {team.rank}e · {team.points} pt{team.points > 1 ? "s" : ""}
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-2 text-xs text-gray-300">
+        <span>5 derniers :</span>
+        {team.form?.length ? (
+          team.form.map((result: string, index: number) => (
+            <span
+              key={`${teamName}-${index}`}
+              className={`flex h-6 w-6 items-center justify-center rounded-full font-bold text-white ${formColors[result] || "bg-gray-600"}`}
+              title={
+                result === "W"
+                  ? "Victoire"
+                  : result === "D"
+                    ? "Match nul"
+                    : "Défaite"
+              }
+            >
+              {result === "W" ? "V" : result === "D" ? "N" : "D"}
+            </span>
+          ))
+        ) : (
+          <span className="text-gray-400">Aucun résultat</span>
+        )}
+      </div>
+      <div className="mt-2 text-xs text-gray-400">
+        {team.played} joué{team.played > 1 ? "s" : ""} · {team.goalsFor} BP · {team.goalsAgainst} BC
       </div>
     </div>
   );
@@ -2424,7 +2501,10 @@ className="
 
           </div>
 
-
+          <div className="mt-4 grid gap-3 border-t border-[#53677F] pt-4 md:grid-cols-2">
+            {renderTeamSportingInfo(match.home_team)}
+            {renderTeamSportingInfo(match.away_team)}
+          </div>
 
         </div>
 

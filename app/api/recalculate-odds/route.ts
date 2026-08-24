@@ -131,9 +131,6 @@ async function recalculateMissingContestOdds(
     throw matchesError;
   }
 
-  const upcomingLimit = new Date(
-    Date.now() + 45 * 24 * 60 * 60 * 1000
-  ).getTime();
   const eligibleMatches = (matches || []).filter((match: any) => {
     if (targetMatchIds && !targetMatchIds.has(match.id)) return false;
     if (!upcomingOnly) return true;
@@ -141,8 +138,7 @@ async function recalculateMissingContestOdds(
     const matchTime = new Date(match.match_date).getTime();
     return (
       match.status !== "finished" &&
-      matchTime >= Date.now() &&
-      matchTime <= upcomingLimit
+      matchTime >= Date.now()
     );
   });
   const matchesToUpdate = force
