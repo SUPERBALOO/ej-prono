@@ -260,6 +260,7 @@ export async function GET(req: NextRequest) {
       skipped: 0,
       intervalMinutes: AUTO_IMPORT_INTERVAL_MINUTES,
     };
+    const importedOddsContests = new Set<string>();
 
     if (
       importMissing &&
@@ -293,6 +294,9 @@ export async function GET(req: NextRequest) {
 
           autoImport.attempted++;
           autoImport.imported += result.imported || 0;
+          if ((result.imported || 0) > 0) {
+            importedOddsContests.add(concours.id);
+          }
         } catch (error) {
           autoImport.skipped++;
           console.error(
@@ -368,6 +372,18 @@ export async function GET(req: NextRequest) {
     );
 
     if (!matches.length) {
+      for (const concoursId of importedOddsContests) {
+        await fetch(`${req.nextUrl.origin}/api/recalculate-odds`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            concoursId,
+            force: true,
+            upcomingOnly: true,
+          }),
+        });
+      }
+
       return NextResponse.json({
         success: true,
         updated: 0,
@@ -382,6 +398,9 @@ export async function GET(req: NextRequest) {
 
     let updated = 0;
     let processed = 0;
+    const oddsContestsToRefresh = new Set<string>(
+      importedOddsContests
+    );
 
     const concoursIds = Array.from(
       new Set(
@@ -595,6 +614,10 @@ export async function GET(req: NextRequest) {
 
           processed += recalculated;
 
+          if (match.concours_id) {
+            oddsContestsToRefresh.add(match.concours_id);
+          }
+
           console.log(
             `Match ${match.id} termine - ${recalculated} pronostics recalcules`
           );
@@ -603,6 +626,28 @@ export async function GET(req: NextRequest) {
         console.error(
           `Erreur match ${match.api_match_id}`,
           err
+        );
+      }
+    }
+
+    // Chaque nouveau résultat fait évoluer la cote sportive des
+    // prochaines rencontres. Le recalcul réapplique ensuite le bonus
+    // des parieurs, sans remplacer la nouvelle base.
+    for (const concoursId of oddsContestsToRefresh) {
+      try {
+        await fetch(`${req.nextUrl.origin}/api/recalculate-odds`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            concoursId,
+            force: true,
+            upcomingOnly: true,
+          }),
+        });
+      } catch (oddsError) {
+        console.error(
+          `Erreur recalcul cotes concours ${concoursId}`,
+          oddsError
         );
       }
     }

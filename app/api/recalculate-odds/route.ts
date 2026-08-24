@@ -95,7 +95,9 @@ async function fetchAndStorePreviousClubStandings(
 
 async function recalculateMissingContestOdds(
   concoursId: string,
-  force = false
+  force = false,
+  targetMatchIds?: Set<string>,
+  upcomingOnly = false
 ) {
   const { data: concours, error: concoursError } =
     await supabase
@@ -129,9 +131,23 @@ async function recalculateMissingContestOdds(
     throw matchesError;
   }
 
+  const upcomingLimit = new Date(
+    Date.now() + 45 * 24 * 60 * 60 * 1000
+  ).getTime();
+  const eligibleMatches = (matches || []).filter((match: any) => {
+    if (targetMatchIds && !targetMatchIds.has(match.id)) return false;
+    if (!upcomingOnly) return true;
+
+    const matchTime = new Date(match.match_date).getTime();
+    return (
+      match.status !== "finished" &&
+      matchTime >= Date.now() &&
+      matchTime <= upcomingLimit
+    );
+  });
   const matchesToUpdate = force
-    ? matches || []
-    : (matches || []).filter(
+    ? eligibleMatches
+    : eligibleMatches.filter(
         (match: any) =>
           match.cote_home == null ||
           match.cote_draw == null ||
@@ -171,10 +187,11 @@ async function recalculateMissingContestOdds(
     const { data: storedTeamRankings } =
       await rankingsQuery;
 
-    const fetchedTeamRankings =
-      await fetchAndStorePreviousClubStandings(
-        competition
-      );
+    const fetchedTeamRankings = storedTeamRankings?.length
+      ? []
+      : await fetchAndStorePreviousClubStandings(
+          competition
+        );
     const teamRankings = [
       ...fetchedTeamRankings,
       ...(storedTeamRankings || []),
@@ -415,16 +432,59 @@ async function getMatchesToUpdate(match: any) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { matchId, concoursId, force } = await req.json();
+    const { matchId, concoursId, force, upcomingOnly } =
+      await req.json();
 
     if (concoursId && !matchId) {
       const result =
         await recalculateMissingContestOdds(
           concoursId,
-          force === true
+          force === true,
+          undefined,
+          upcomingOnly === true
         );
 
       return NextResponse.json(result);
+    }
+
+    const { data: initialMatch } = await supabase
+      .from("matches")
+      .select("*")
+      .eq("id", matchId)
+      .single();
+
+    if (!initialMatch) {
+      throw new Error("Match introuvable");
+    }
+
+    const matchesToUpdate = await getMatchesToUpdate(initialMatch);
+
+    const matchIds = matchesToUpdate.map(
+      (linkedMatch: any) => linkedMatch.id
+    );
+
+    const matchIdsByContest = new Map<string, Set<string>>();
+    for (const linkedMatch of matchesToUpdate) {
+      if (!linkedMatch.concours_id) continue;
+      const contestMatchIds =
+        matchIdsByContest.get(linkedMatch.concours_id) ||
+        new Set<string>();
+      contestMatchIds.add(linkedMatch.id);
+      matchIdsByContest.set(
+        linkedMatch.concours_id,
+        contestMatchIds
+      );
+    }
+
+    // Toujours rafraîchir la cote sportive avant d'ajouter le bonus
+    // communautaire. Un pronostic ne peut donc jamais figer la base.
+    for (const [linkedContestId, contestMatchIds] of
+      matchIdsByContest) {
+      await recalculateMissingContestOdds(
+        linkedContestId,
+        true,
+        contestMatchIds
+      );
     }
 
     const { data: match } = await supabase
@@ -434,14 +494,8 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (!match) {
-      throw new Error("Match introuvable");
+      throw new Error("Match introuvable après recalcul");
     }
-
-    const matchesToUpdate = await getMatchesToUpdate(match);
-
-    const matchIds = matchesToUpdate.map(
-      (linkedMatch: any) => linkedMatch.id
-    );
 
     const { data: predictions } =
       await supabase
