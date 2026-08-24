@@ -488,27 +488,8 @@ export async function POST(req: NextRequest) {
 
     const origin = req.nextUrl.origin;
 
-    await fetch(
-      `${origin}/api/recalculate-odds`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          matchId: match.id,
-        }),
-      }
-    );
-
-    const { data: refreshedMatch } = await supabase
-      .from("matches")
-      .select("*")
-      .eq("id", match.id)
-      .single();
-
     const commonPredictionOdds = getPredictionOdds(
-      refreshedMatch || match,
+      match,
       pred_home,
       pred_away
     );

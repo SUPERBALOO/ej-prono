@@ -428,8 +428,13 @@ async function getMatchesToUpdate(match: any) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { matchId, concoursId, force, upcomingOnly } =
-      await req.json();
+    const {
+      matchId,
+      concoursId,
+      force,
+      upcomingOnly,
+      refreshSportingBase,
+    } = await req.json();
 
     if (concoursId && !matchId) {
       const result =
@@ -459,28 +464,28 @@ export async function POST(req: NextRequest) {
       (linkedMatch: any) => linkedMatch.id
     );
 
-    const matchIdsByContest = new Map<string, Set<string>>();
-    for (const linkedMatch of matchesToUpdate) {
-      if (!linkedMatch.concours_id) continue;
-      const contestMatchIds =
-        matchIdsByContest.get(linkedMatch.concours_id) ||
-        new Set<string>();
-      contestMatchIds.add(linkedMatch.id);
-      matchIdsByContest.set(
-        linkedMatch.concours_id,
-        contestMatchIds
-      );
-    }
+    if (refreshSportingBase === true) {
+      const matchIdsByContest = new Map<string, Set<string>>();
+      for (const linkedMatch of matchesToUpdate) {
+        if (!linkedMatch.concours_id) continue;
+        const contestMatchIds =
+          matchIdsByContest.get(linkedMatch.concours_id) ||
+          new Set<string>();
+        contestMatchIds.add(linkedMatch.id);
+        matchIdsByContest.set(
+          linkedMatch.concours_id,
+          contestMatchIds
+        );
+      }
 
-    // Toujours rafraîchir la cote sportive avant d'ajouter le bonus
-    // communautaire. Un pronostic ne peut donc jamais figer la base.
-    for (const [linkedContestId, contestMatchIds] of
-      matchIdsByContest) {
-      await recalculateMissingContestOdds(
-        linkedContestId,
-        true,
-        contestMatchIds
-      );
+      for (const [linkedContestId, contestMatchIds] of
+        matchIdsByContest) {
+        await recalculateMissingContestOdds(
+          linkedContestId,
+          true,
+          contestMatchIds
+        );
+      }
     }
 
     const { data: match } = await supabase
