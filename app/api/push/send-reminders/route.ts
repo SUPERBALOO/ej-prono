@@ -7,6 +7,7 @@ import webPush, {
   type PushSubscription,
   type WebPushError,
 } from "web-push";
+import { sendLeMansNewsNotifications } from "@/lib/sendNewsNotifications";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -309,11 +310,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    let newsNotifications = null;
+
+    try {
+      newsNotifications =
+        await sendLeMansNewsNotifications(
+          new URL(req.url).origin
+        );
+    } catch (newsError) {
+      console.error(
+        "Controle automatique des actualites impossible",
+        newsError
+      );
+    }
+
     return NextResponse.json({
       success: true,
       matchesChecked: matches?.length || 0,
       usersChecked,
       remindersSent,
+      newsNotifications,
     });
   } catch (error: unknown) {
     const message = getErrorMessage(error);

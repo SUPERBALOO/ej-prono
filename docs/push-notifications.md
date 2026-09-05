@@ -55,6 +55,11 @@ Pour les rappels de pronostics, utiliser cron-job.org en GET vers :
 https://ej-prono.vercel.app/api/push/send-reminders
 ```
 
+Cette meme execution controle aussi les actualites du Mans FC. Il n'est donc
+pas necessaire de programmer une seconde tache pour `/api/push/send-news`.
+Le premier passage memorise l'article courant sans envoyer de notification ;
+les passages suivants notifient uniquement lorsqu'un nouvel article apparait.
+
 Reglage conseille avec cron-job.org :
 
 ```text
