@@ -55,7 +55,7 @@ export async function calculatePoints(
     throw error;
   }
 
-  let processed = 0;
+  const pointRows = [];
 
   for (const prediction of predictions || []) {
     const match = prediction.matches;
@@ -122,22 +122,27 @@ export async function calculatePoints(
       points *= 2;
     }
 
-    await supabase
-      .from("points")
-      .upsert(
-        {
-          user_id: prediction.user_id,
-          match_id: prediction.match_id,
-          points,
-          exact_score: exactScore,
-        },
-        {
-          onConflict: "user_id,match_id",
-        }
-      );
-
-    processed++;
+    pointRows.push({
+      user_id: prediction.user_id,
+      match_id: prediction.match_id,
+      points,
+      exact_score: exactScore,
+    });
   }
 
-  return processed;
+  if (!pointRows.length) {
+    return 0;
+  }
+
+  const { error: pointsError } = await supabase
+    .from("points")
+    .upsert(pointRows, {
+      onConflict: "user_id,match_id",
+    });
+
+  if (pointsError) {
+    throw pointsError;
+  }
+
+  return pointRows.length;
 }

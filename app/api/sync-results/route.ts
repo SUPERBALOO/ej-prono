@@ -604,17 +604,18 @@ export async function GET(req: NextRequest) {
 
         updated++;
 
-        if (
-          status === "finished" &&
-          (match.status !== "finished" ||
-            scoreChanged)
-        ) {
+        // Recalculer aussi un match deja termine permet de reparer une
+        // execution precedente interrompue apres la sauvegarde du score.
+        if (status === "finished") {
           const recalculated =
             await calculatePoints(match.id);
 
           processed += recalculated;
 
-          if (match.concours_id) {
+          if (
+            match.concours_id &&
+            (match.status !== "finished" || scoreChanged)
+          ) {
             oddsContestsToRefresh.add(match.concours_id);
           }
 
